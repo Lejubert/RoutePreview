@@ -461,29 +461,93 @@ def fetch_street_view_image(lat: float, lng: float, heading: float,
 
 
 def add_direction_overlay(image: Image.Image, heading: float, street_name: str = "") -> Image.Image:
-    """Add direction arrow and optional street name overlay to image."""
+    """Add direction compass and optional street name overlay to image.
+    
+    Shows a compass with:
+    - Red arrow pointing to North (rotates based on heading)
+    - Direction text (N, NE, E, SE, S, SW, W, NW)
+    
+    Heading: 0=North, 90=East, 180=South, 270=West
+    """
     draw = ImageDraw.Draw(image)
     
-    # Draw direction arrow
-    arrow_size = 40
-    center_x, center_y = image.width - 60, 60
+    # Compass position
+    compass_size = 35
+    center_x, center_y = image.width - 55, 55
     
     # Draw circle background
     draw.ellipse(
-        [(center_x - arrow_size, center_y - arrow_size), 
-         (center_x + arrow_size, center_y + arrow_size)],
-        fill=(0, 0, 0, 180),
-        outline=(255, 255, 255)
+        [(center_x - compass_size, center_y - compass_size), 
+         (center_x + compass_size, center_y + compass_size)],
+        fill=(0, 0, 0, 200),
+        outline=(255, 255, 255, 200),
+        width=2
     )
     
-    # Draw arrow pointing north (adjust based on heading)
-    # Simple triangle pointing up
-    points = [
-        (center_x, center_y - 20),  # Top
-        (center_x - 10, center_y + 10),  # Bottom left
-        (center_x + 10, center_y + 10),  # Bottom right
-    ]
-    draw.polygon(points, fill=(255, 255, 255))
+    # Calculate where North is relative to camera view
+    # Camera faces 'heading' degrees from North
+    # So North is at -heading degrees from straight ahead (up)
+    # In image coords: up is -Y, right is +X
+    # Rotation: 0 degrees = up, positive = clockwise
+    
+    north_angle_deg = -heading  # North is this many degrees from camera forward
+    north_angle_rad = math.radians(north_angle_deg - 90)  # Convert to image coords (-90 because 0 deg = up)
+    
+    # Draw North arrow (red)
+    arrow_length = 25
+    arrow_tip_x = center_x + arrow_length * math.cos(north_angle_rad)
+    arrow_tip_y = center_y + arrow_length * math.sin(north_angle_rad)
+    
+    # Arrow base (opposite direction)
+    arrow_base_x = center_x - (arrow_length * 0.4) * math.cos(north_angle_rad)
+    arrow_base_y = center_y - (arrow_length * 0.4) * math.sin(north_angle_rad)
+    
+    # Arrow head points
+    head_angle1 = north_angle_rad + math.radians(150)
+    head_angle2 = north_angle_rad - math.radians(150)
+    head_len = 10
+    
+    head1_x = arrow_tip_x + head_len * math.cos(head_angle1)
+    head1_y = arrow_tip_y + head_len * math.sin(head_angle1)
+    head2_x = arrow_tip_x + head_len * math.cos(head_angle2)
+    head2_y = arrow_tip_y + head_len * math.sin(head_angle2)
+    
+    # Draw arrow line
+    draw.line([(arrow_base_x, arrow_base_y), (arrow_tip_x, arrow_tip_y)], fill=(255, 80, 80), width=3)
+    # Draw arrow head
+    draw.polygon([(arrow_tip_x, arrow_tip_y), (head1_x, head1_y), (head2_x, head2_y)], fill=(255, 80, 80))
+    
+    # Draw "N" at arrow tip
+    try:
+        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 12)
+    except:
+        font_small = ImageFont.load_default()
+    
+    n_offset_x = 8 * math.cos(north_angle_rad)
+    n_offset_y = 8 * math.sin(north_angle_rad)
+    draw.text((arrow_tip_x + n_offset_x - 4, arrow_tip_y + n_offset_y - 6), "N", fill=(255, 200, 200), font=font_small)
+    
+    # Show heading direction as text below compass
+    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    dir_index = int((heading + 22.5) % 360 / 45)
+    direction_text = f"→ {directions[dir_index]} {int(heading)}°"
+    
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
+    except:
+        font = ImageFont.load_default()
+    
+    # Draw heading text with background
+    text_bbox = draw.textbbox((0, 0), direction_text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_x = center_x - text_width // 2
+    text_y = center_y + compass_size + 8
+    
+    draw.rectangle(
+        [(text_x - 4, text_y - 2), (text_x + text_width + 4, text_y + 18)],
+        fill=(0, 0, 0, 200)
+    )
+    draw.text((text_x, text_y), direction_text, fill=(255, 255, 255), font=font)
     
     # Add street name if provided
     if street_name:
@@ -720,11 +784,14 @@ with tab1:
         default_start = EXAMPLE_ROUTES[selected_example]["start"]
         default_end = EXAMPLE_ROUTES[selected_example]["end"]
         
+        # Create a unique key suffix based on the selected route to force re-render
+        route_key = selected_example.replace(" ", "_").replace(",", "").replace("→", "_")[:30]
+        
         # Use autocomplete search boxes for location input
         st.caption("📍 **Starting Point**")
         origin = st_searchbox(
             search_places,
-            key="origin_search",
+            key=f"origin_search_{route_key}",  # Dynamic key forces re-render
             placeholder="Type to search places...",
             default=default_start if default_start else None,
             clear_on_submit=False,
@@ -733,7 +800,7 @@ with tab1:
         st.caption("📍 **Destination**")
         destination = st_searchbox(
             search_places,
-            key="destination_search",
+            key=f"destination_search_{route_key}",  # Dynamic key forces re-render
             placeholder="Type to search places...",
             default=default_end if default_end else None,
             clear_on_submit=False,
