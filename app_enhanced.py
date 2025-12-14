@@ -1127,23 +1127,16 @@ with tab2:
                                     st.caption(f"💰 ${project['costs']['total']}")
                                     st.caption(f"🖼️ {project['images']['successful']} images")
                                 
-                                # Actions
-                                action_col1, action_col2 = st.columns(2)
-                                with action_col1:
-                                    with open(video_path, "rb") as f:
-                                        st.download_button(
-                                            label="⬇️ Download",
-                                            data=f,
-                                            file_name=f"{project_id}.mp4",
-                                            mime="video/mp4",
-                                            key=f"download_{project_id}",
-                                            use_container_width=True
-                                        )
-                                
-                                with action_col2:
-                                    if st.button("🗑️ Delete", key=f"delete_{project_id}", use_container_width=True):
-                                        shutil.rmtree(project_dir)
-                                        st.rerun()
+                                # Download button
+                                with open(video_path, "rb") as f:
+                                    st.download_button(
+                                        label="⬇️ Download Video",
+                                        data=f,
+                                        file_name=f"{project_id}.mp4",
+                                        mime="video/mp4",
+                                        key=f"download_{project_id}",
+                                        use_container_width=True
+                                    )
                             else:
                                 # No video found - show info about what we checked
                                 logger.warning(f"Gallery: No video found for {project_id}")
