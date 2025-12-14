@@ -1,17 +1,78 @@
 # 🎬 Street View to Video
 
-Transform any route into a cinematic Street View journey. Enter a start and end location, and this app creates a smooth video by stitching together Google Street View images along the path.
+Transform any route into a cinematic Street View journey! Enter a start and end location, and this app creates a smooth video by stitching together Google Street View images along the path.
 
-![Street View to Video](https://img.shields.io/badge/Made%20with-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://street-view-to-video.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+---
+
+## 🎥 Example Videos
+
+<table>
+<tr>
+<td align="center">
+<strong>🗽 Times Square → Central Park (NYC)</strong><br/>
+<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
+<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+</td>
+<td align="center">
+<strong>🏛️ Colosseum → Trevi Fountain (Rome)</strong><br/>
+<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
+<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+</td>
+</tr>
+<tr>
+<td align="center">
+<strong>🏖️ Santa Monica → Venice Beach (LA)</strong><br/>
+<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
+<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+</td>
+<td align="center">
+<strong>🌳 Las Ramblas → Barcelona Cathedral</strong><br/>
+<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
+<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+</td>
+</tr>
+</table>
+
+> 💡 *Videos generated with 15 FPS, 15m interval, and background music*
+
+---
 
 ## ✨ Features
 
-- 🗺️ **Interactive Map Preview** - See your route before generating
-- 📍 **Address Geocoding** - Just type any address
-- 🎚️ **Customizable Settings** - Adjust FPS, interval, camera angle
-- 💰 **Cost Estimator** - Know your API costs upfront
-- 🎥 **Instant Preview & Download** - Watch and download your video
+| Feature | Description |
+|---------|-------------|
+| 🗺️ **Interactive Map** | See your route preview before generating |
+| 📍 **Place Autocomplete** | Smart search with Google Places API |
+| 🧭 **Direction Compass** | Shows heading direction in each frame |
+| 🎵 **Background Music** | Add ambient music to your videos |
+| 🎚️ **Customizable** | Adjust FPS, interval, FOV, pitch |
+| 💰 **Cost Tracking** | Know your API costs upfront |
+| 📁 **Project Gallery** | View and manage all your generated videos |
+| 🌍 **20+ Preset Routes** | Popular walking tours worldwide |
+
+---
+
+## 🌍 Preset Routes
+
+Choose from famous walking tours around the world:
+
+- 🗽 **New York**: Times Square → Central Park, Greenwich Village Walk
+- 🌉 **San Francisco**: Golden Gate Bridge, Lombard St → Pier 39
+- 🏖️ **Los Angeles**: Santa Monica → Venice Beach
+- 🗼 **Paris**: Eiffel Tower → Arc de Triomphe, Left Bank Walk
+- 🏛️ **Rome**: Colosseum → Trevi Fountain
+- 🌸 **Tokyo**: Shibuya → Tokyo Tower, Harajuku Walk
+- 🎡 **London**: London Eye → Big Ben, Covent Garden
+- 🇩🇪 **Berlin**: Brandenburg Gate → Checkpoint Charlie
+- 🏰 **Prague**: Charles Bridge → Prague Castle
+- 🎰 **Las Vegas**: Full Vegas Strip Experience
+- And many more!
+
+---
 
 ## 🚀 Quick Start
 
@@ -31,16 +92,17 @@ Transform any route into a cinematic Street View journey. Enter a start and end 
    ```
 
 3. **Google API Key** with these APIs enabled:
-   - Maps JavaScript API
    - Geocoding API
    - Directions API
    - Street View Static API
+   - Places API (for autocomplete)
 
 ### Installation
 
 ```bash
-# Clone or navigate to the project
-cd street_view_to_video
+# Clone the repository
+git clone https://github.com/aldrinjenson/street-view-to-video.git
+cd street-view-to-video
 
 # Create virtual environment
 python -m venv venv
@@ -61,21 +123,27 @@ GOOGLE_API_KEY=your_api_key_here
 ### Run the App
 
 ```bash
-streamlit run app.py
+streamlit run app_enhanced.py
 ```
 
 The app will open at `http://localhost:8501`
 
-## 📖 Usage
+---
 
-1. **Enter Locations** - Type your starting point and destination
-2. **Adjust Settings** - Use the sidebar to customize:
-   - Image interval (meters between captures)
-   - Video FPS
-   - Camera field of view
-   - Camera pitch (up/down angle)
-3. **Generate** - Click "Generate Video"
-4. **Download** - Preview and download your video
+## 🎮 Usage
+
+1. **Select a Route** - Choose from preset routes or enter custom locations
+2. **Adjust Settings** in the sidebar:
+   - 📏 Image interval (meters between captures)
+   - 🎬 Video FPS (frames per second)
+   - 📷 Camera field of view
+   - ⬆️ Camera pitch (up/down angle)
+   - 🧭 Direction overlays
+   - 🎵 Background music
+3. **Generate** - Click "🚀 Generate Video"
+4. **Preview & Download** - Watch your video and download it!
+
+---
 
 ## 💰 Cost Information
 
@@ -83,33 +151,93 @@ Google Street View Static API pricing:
 - **$7.00 per 1,000 requests**
 - **$200/month free credit** (~28,500 free images)
 
-| Route Length | Images @20m | Est. Cost |
+| Route Length | Images @15m | Est. Cost |
 |--------------|-------------|-----------|
-| 1 km         | 50          | $0.35     |
-| 5 km         | 250         | $1.75     |
-| 10 km        | 500         | $3.50     |
+| 1 km         | 67          | ~$0.47    |
+| 2 km         | 134         | ~$0.94    |
+| 5 km         | 334         | ~$2.34    |
 
-Most personal projects will stay within the free tier!
+Most personal projects stay within the free tier! The app shows exact cost for each video.
+
+---
 
 ## 🗂️ Project Structure
 
 ```
 street_view_to_video/
-├── app.py              # Main Streamlit application
-├── requirements.txt    # Python dependencies
-├── .env               # Your API key (not in git)
-├── .gitignore
-├── output/            # Generated videos
-└── temp/              # Temporary images (auto-cleaned)
+├── app_enhanced.py       # Main Streamlit application
+├── regenerate_video.py   # CLI tool to recreate videos
+├── requirements.txt      # Python dependencies
+├── packages.txt          # System dependencies (FFmpeg)
+├── .env                  # Your API key (not in git)
+├── .streamlit/           # Streamlit configuration
+├── audio_samples/        # Background music files
+└── projects/             # Generated videos and images
+    └── <route_timestamp>/
+        ├── images/       # Street View frames
+        ├── video.mp4     # Generated video
+        └── metadata.json # Route and cost info
 ```
+
+---
+
+## 🛠️ CLI Tools
+
+Regenerate videos from existing image sets:
+
+```bash
+# List all projects
+python regenerate_video.py --list
+
+# Regenerate with new settings
+python regenerate_video.py --project <project_id> --fps 30
+
+# Add music to existing video
+python regenerate_video.py --project <project_id> --audio audio_samples/calm_journey.mp3
+```
+
+---
+
+## ☁️ Deploy to Streamlit Cloud
+
+1. Fork this repository
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your GitHub and select this repo
+4. Set `app_enhanced.py` as the main file
+5. Add your `GOOGLE_API_KEY` in Secrets
+6. Deploy!
+
+---
 
 ## ⚠️ Limitations
 
 - Max image resolution: 640x640 pixels
 - Some areas may have sparse Street View coverage
 - Rural/private roads may not have imagery
+- Cloud deployment: videos are temporary (download them!)
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Feel free to:
+- Add new preset routes
+- Improve the UI
+- Add new features
+- Fix bugs
+
+---
 
 ## 📝 License
 
-MIT License - Use freely for personal projects!
+MIT License - Use freely for personal and commercial projects!
 
+---
+
+<div align="center">
+
+Made with ❤️ using Google Street View API & Streamlit
+
+**[⭐ Star this repo](https://github.com/aldrinjenson/street-view-to-video)** if you find it useful!
+
+</div>
