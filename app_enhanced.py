@@ -52,102 +52,122 @@ EXAMPLE_ROUTES = {
     "🗽 Times Square → Central Park (NYC)": {
         "start": "Times Square, New York, NY",
         "end": "Central Park, New York, NY",
-        "description": "Classic NYC route through Midtown"
+        "description": "Classic NYC route through Midtown",
+        "center": [40.7614, -73.9776], "zoom": 14
     },
     "🌉 Golden Gate Bridge Walk (SF)": {
         "start": "Golden Gate Bridge, San Francisco, CA",
         "end": "Sausalito, CA",
-        "description": "Iconic bridge with bay views"
+        "description": "Iconic bridge with bay views",
+        "center": [37.8199, -122.4783], "zoom": 13
     },
     "🏖️ Santa Monica to Venice (LA)": {
         "start": "Santa Monica Pier, CA",
         "end": "Venice Beach Boardwalk, CA",
-        "description": "Scenic Pacific Coast beach drive"
+        "description": "Scenic Pacific Coast beach drive",
+        "center": [33.9990, -118.4790], "zoom": 14
     },
     "🎡 London Eye → Big Ben": {
         "start": "London Eye, London, UK",
         "end": "Big Ben, Westminster, London, UK",
-        "description": "Thames riverside landmarks"
+        "description": "Thames riverside landmarks",
+        "center": [51.5007, -0.1246], "zoom": 15
     },
     "🗼 Eiffel Tower → Arc de Triomphe": {
         "start": "Eiffel Tower, Paris, France",
         "end": "Arc de Triomphe, Paris, France",
-        "description": "Champs-Élysées iconic avenue"
+        "description": "Champs-Élysées iconic avenue",
+        "center": [48.8656, 2.3100], "zoom": 14
     },
     "🏛️ Colosseum → Trevi Fountain": {
         "start": "Colosseum, Rome, Italy",
         "end": "Trevi Fountain, Rome, Italy",
-        "description": "Ancient Rome to Baroque"
+        "description": "Ancient Rome to Baroque",
+        "center": [41.8955, 12.4823], "zoom": 15
     },
     "🌸 Shibuya → Tokyo Tower": {
         "start": "Shibuya Crossing, Tokyo, Japan",
         "end": "Tokyo Tower, Tokyo, Japan",
-        "description": "Modern Tokyo streets"
+        "description": "Modern Tokyo streets",
+        "center": [35.6595, 139.7050], "zoom": 14
     },
     "🌁 Lombard St → Pier 39 (SF)": {
         "start": "Lombard Street, San Francisco, CA",
         "end": "Pier 39, San Francisco, CA",
-        "description": "Crookedest street to waterfront"
+        "description": "Crookedest street to waterfront",
+        "center": [37.8050, -122.4180], "zoom": 14
     },
     "🏛️ Lincoln Memorial → Capitol": {
         "start": "Lincoln Memorial, Washington, DC",
         "end": "US Capitol, Washington, DC",
-        "description": "National Mall monuments"
+        "description": "National Mall monuments",
+        "center": [38.8893, -77.0200], "zoom": 14
     },
     "🎰 Vegas Strip Experience": {
         "start": "Stratosphere Tower, Las Vegas, NV",
         "end": "Welcome to Las Vegas Sign, NV",
-        "description": "Full Las Vegas Strip"
+        "description": "Full Las Vegas Strip",
+        "center": [36.1147, -115.1728], "zoom": 13
     },
     "🌴 Miami Ocean Drive": {
         "start": "Ocean Drive, Miami Beach, FL",
         "end": "South Pointe Park, Miami Beach, FL",
-        "description": "Art Deco beachfront"
+        "description": "Art Deco beachfront",
+        "center": [25.7825, -80.1324], "zoom": 14
     },
     "🏖️ Bondi to Coogee (Sydney)": {
         "start": "Bondi Beach, Sydney, Australia",
         "end": "Coogee Beach, Sydney, Australia",
-        "description": "Famous coastal walk"
+        "description": "Famous coastal walk",
+        "center": [-33.8915, 151.2767], "zoom": 14
     },
     "🚶 Greenwich Village Walk (NYC)": {
         "start": "Washington Square Park, New York, NY",
         "end": "West Village, New York, NY",
-        "description": "Charming neighborhood stroll"
+        "description": "Charming neighborhood stroll",
+        "center": [40.7308, -74.0020], "zoom": 15
     },
     "🌸 Cherry Blossom Walk (DC)": {
         "start": "Tidal Basin, Washington, DC",
         "end": "Jefferson Memorial, Washington, DC",
-        "description": "Beautiful waterfront walk"
+        "description": "Beautiful waterfront walk",
+        "center": [38.8814, -77.0365], "zoom": 15
     },
     "🎨 Left Bank Paris Walk": {
         "start": "Notre-Dame Cathedral, Paris, France",
         "end": "Musée d'Orsay, Paris, France",
-        "description": "Seine riverside art district"
+        "description": "Seine riverside art district",
+        "center": [48.8530, 2.3400], "zoom": 15
     },
     "🏰 Prague Castle Walk": {
         "start": "Charles Bridge, Prague, Czech Republic",
         "end": "Prague Castle, Prague, Czech Republic",
-        "description": "Historic Old Town to castle"
+        "description": "Historic Old Town to castle",
+        "center": [50.0865, 14.4100], "zoom": 15
     },
     "🌳 Barcelona Gothic Quarter": {
         "start": "Las Ramblas, Barcelona, Spain",
         "end": "Barcelona Cathedral, Barcelona, Spain",
-        "description": "Medieval streets exploration"
+        "description": "Medieval streets exploration",
+        "center": [41.3825, 2.1769], "zoom": 15
     },
     "🎭 Covent Garden Stroll (London)": {
         "start": "Covent Garden, London, UK",
         "end": "Trafalgar Square, London, UK",
-        "description": "Theater district walk"
+        "description": "Theater district walk",
+        "center": [51.5117, -0.1240], "zoom": 15
     },
     "🍜 Harajuku to Shibuya (Tokyo)": {
         "start": "Meiji Shrine, Tokyo, Japan",
         "end": "Shibuya Crossing, Tokyo, Japan",
-        "description": "Youth culture to bustling crossing"
+        "description": "Youth culture to bustling crossing",
+        "center": [35.6700, 139.7030], "zoom": 14
     },
     "Custom Route": {
         "start": "",
         "end": "",
-        "description": "Enter your own locations"
+        "description": "Enter your own locations",
+        "center": [40.7128, -74.0060], "zoom": 12
     }
 }
 
@@ -680,15 +700,27 @@ with tab1:
     with col2:
         st.markdown("### 🗺️ Route Preview")
         
-        map_center = [40.7128, -74.0060]
-        m = folium.Map(location=map_center, zoom_start=12, tiles="CartoDB dark_matter")
+        # Use route-specific center and zoom
+        route_info = EXAMPLE_ROUTES[selected_example]
+        map_center = route_info.get("center", [40.7128, -74.0060])
+        map_zoom = route_info.get("zoom", 12)
         
+        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+        
+        # Show route line if generated
         if "route_coords" in st.session_state and st.session_state.route_coords:
             coords = st.session_state.route_coords
             folium.PolyLine(coords, color="#6366f1", weight=4, opacity=0.8).add_to(m)
             folium.Marker(coords[0], popup="Start", icon=folium.Icon(color="green", icon="play")).add_to(m)
             folium.Marker(coords[-1], popup="End", icon=folium.Icon(color="red", icon="stop")).add_to(m)
             m.fit_bounds([coords[0], coords[-1]])
+        else:
+            # Show approximate route location with a marker
+            folium.Marker(
+                map_center,
+                popup=f"{route_info['start']} → {route_info['end']}" if route_info['start'] else "Select a route",
+                icon=folium.Icon(color="blue", icon="info-sign")
+            ).add_to(m)
         
         # Use selected route as key to force map refresh when route changes
         map_key = f"map_{selected_example.replace(' ', '_')}"
