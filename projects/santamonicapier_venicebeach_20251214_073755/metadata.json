@@ -1,0 +1,41 @@
+{
+  "route": {
+    "start": "Santa Monica Pier, Santa Monica, CA",
+    "end": "Venice Beach, Los Angeles, CA",
+    "start_coords": [34.0082821, -118.4987585],
+    "end_coords": [33.994091, -118.4527302],
+    "distance": "3.4 mi",
+    "duration": "15 mins"
+  },
+  "settings": {
+    "interval": 20,
+    "fps": 10,
+    "fov": 90,
+    "pitch": 0,
+    "overlays": false,
+    "has_audio": false
+  },
+  "costs": {
+    "geocoding": 0.01,
+    "directions": 0.005,
+    "streetview": 1.89,
+    "total": 1.91,
+    "calls": {
+      "geocoding": 2,
+      "directions": 1,
+      "streetview": 270
+    }
+  },
+  "images": {
+    "total": 270,
+    "successful": 270,
+    "failed": 0
+  },
+  "video": {
+    "path": "video.mp4",
+    "duration_seconds": 27,
+    "size_mb": 12.5
+  },
+  "created_at": "2024-12-14T07:37:55Z"
+}
+

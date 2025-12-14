@@ -1,0 +1,41 @@
+{
+  "route": {
+    "start": "Colosseum, Rome, Italy",
+    "end": "Trevi Fountain, Rome, Italy",
+    "start_coords": [41.8902, 12.4922],
+    "end_coords": [41.9009, 12.4833],
+    "distance": "1.2 km",
+    "duration": "15 mins"
+  },
+  "settings": {
+    "interval": 15,
+    "fps": 15,
+    "fov": 90,
+    "pitch": 0,
+    "overlays": false,
+    "has_audio": true
+  },
+  "costs": {
+    "geocoding": 0.01,
+    "directions": 0.005,
+    "streetview": 1.89,
+    "total": 1.91,
+    "calls": {
+      "geocoding": 2,
+      "directions": 1,
+      "streetview": 269
+    }
+  },
+  "images": {
+    "total": 269,
+    "successful": 269,
+    "failed": 0
+  },
+  "video": {
+    "path": "video_regenerated.mp4",
+    "duration_seconds": 17.93,
+    "size_mb": 15.43
+  },
+  "created_at": "2024-12-14T07:53:00Z"
+}
+
