@@ -27,8 +27,18 @@ from io import BytesIO
 # Load environment variables
 load_dotenv()
 
-# Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Configuration - support both .env (local) and st.secrets (Streamlit Cloud)
+def get_api_key():
+    """Get API key from environment or Streamlit secrets."""
+    # Try Streamlit secrets first (for cloud deployment)
+    try:
+        return st.secrets.get("GOOGLE_API_KEY")
+    except:
+        pass
+    # Fall back to environment variable (local development)
+    return os.getenv("GOOGLE_API_KEY")
+
+GOOGLE_API_KEY = get_api_key()
 PROJECTS_DIR = Path("projects")
 OUTPUT_DIR = Path("output")  # Legacy support
 
@@ -163,6 +173,18 @@ EXAMPLE_ROUTES = {
         "end": "Shibuya Crossing, Tokyo, Japan",
         "description": "Youth culture to bustling crossing",
         "center": [35.6700, 139.7030], "zoom": 14
+    },
+    "🇩🇪 Brandenburg Gate → Checkpoint Charlie (Berlin)": {
+        "start": "Brandenburg Gate, Berlin, Germany",
+        "end": "Checkpoint Charlie, Berlin, Germany",
+        "description": "Historic Cold War landmarks",
+        "center": [52.5163, 13.3900], "zoom": 14
+    },
+    "🧱 East Side Gallery → Alexanderplatz (Berlin)": {
+        "start": "East Side Gallery, Berlin, Germany",
+        "end": "Alexanderplatz, Berlin, Germany",
+        "description": "Berlin Wall art to iconic TV tower",
+        "center": [52.5050, 13.4400], "zoom": 14
     },
     "Custom Route": {
         "start": "",

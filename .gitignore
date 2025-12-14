@@ -4,6 +4,9 @@
 venv/
 env/
 
+# Streamlit secrets (NEVER commit!)
+.streamlit/secrets.toml
+
 # Python
 __pycache__/
 *.py[cod]
@@ -17,9 +20,6 @@ dist/
 # Project specific
 temp/
 output/
-*.mp4
-*.jpg
-*.png
 
 # IDE
 .idea/
