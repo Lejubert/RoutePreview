@@ -1,0 +1,46 @@
+{
+  "route": {
+    "start": "Las Ramblas, Barcelona, Spain",
+    "end": "Barcelona Cathedral, Barcelona, Spain",
+    "start_coords": [
+      41.3856087,
+      2.1698166
+    ],
+    "end_coords": [
+      41.383962,
+      2.1761991
+    ],
+    "distance": "1.0 km",
+    "duration": "6 mins"
+  },
+  "settings": {
+    "interval": 15,
+    "fps": 15,
+    "fov": 90,
+    "pitch": 0,
+    "overlays": true,
+    "has_audio": false
+  },
+  "costs": {
+    "geocoding": 0.01,
+    "directions": 0.005,
+    "streetview": 0.46,
+    "total": 0.47,
+    "calls": {
+      "geocoding": 2,
+      "directions": 1,
+      "streetview": 65
+    }
+  },
+  "images": {
+    "total": 65,
+    "successful": 65,
+    "failed": 0
+  },
+  "video": {
+    "path": "lasramblas_barcelonacathedral_20251214_080549/video.mp4",
+    "duration_seconds": 4.333333333333333,
+    "size_mb": 4.04
+  },
+  "created_at": "2025-12-14T08:06:12.727265"
+}

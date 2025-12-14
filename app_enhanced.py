@@ -19,6 +19,7 @@ import requests
 import polyline
 import folium
 from streamlit_folium import st_folium
+from streamlit_searchbox import st_searchbox
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -249,6 +250,33 @@ def calculate_costs(geocoding_calls: int, directions_calls: int, streetview_call
 # ============================================================================
 # CORE FUNCTIONS (from original app.py)
 # ============================================================================
+
+def search_places(query: str) -> list[str]:
+    """Search for places using Google Places Autocomplete API."""
+    if not query or len(query) < 2:
+        return []
+    
+    url = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+    params = {
+        "input": query,
+        "key": GOOGLE_API_KEY,
+        "types": "geocode|establishment",
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
+        
+        if data.get("status") == "OK":
+            predictions = data.get("predictions", [])
+            return [p.get("description", "") for p in predictions[:5]]
+        else:
+            # Fallback: return the query itself
+            return [query] if query else []
+    except Exception as e:
+        logger.warning(f"Places Autocomplete error: {e}")
+        return [query] if query else []
+
 
 def geocode_address(address: str) -> tuple[float, float] | None:
     """Convert an address to lat/lng coordinates."""
@@ -692,8 +720,30 @@ with tab1:
         default_start = EXAMPLE_ROUTES[selected_example]["start"]
         default_end = EXAMPLE_ROUTES[selected_example]["end"]
         
-        origin = st.text_input("Starting Point", value=default_start, placeholder="e.g., Times Square, New York")
-        destination = st.text_input("Destination", value=default_end, placeholder="e.g., Central Park, New York")
+        # Use autocomplete search boxes for location input
+        st.caption("📍 **Starting Point**")
+        origin = st_searchbox(
+            search_places,
+            key="origin_search",
+            placeholder="Type to search places...",
+            default=default_start if default_start else None,
+            clear_on_submit=False,
+        )
+        
+        st.caption("📍 **Destination**")
+        destination = st_searchbox(
+            search_places,
+            key="destination_search",
+            placeholder="Type to search places...",
+            default=default_end if default_end else None,
+            clear_on_submit=False,
+        )
+        
+        # Show selected values
+        if origin:
+            st.success(f"✅ Start: {origin}")
+        if destination:
+            st.success(f"✅ End: {destination}")
         
         generate_btn = st.button("🚀 Generate Video", type="primary", use_container_width=True)
     
@@ -948,17 +998,36 @@ with tab2:
             for j, col in enumerate(cols):
                 if i + j < len(projects):
                     project = projects[i + j]
+                    project_id = project["project_id"]
                     
                     with col:
                         with st.container():
                             st.markdown(f"#### {project['route']['start']} → {project['route']['end']}")
                             
-                            video_path = PROJECTS_DIR / project["project_id"] / "video.mp4"
+                            # Find video file - try multiple possible names
+                            video_path = None
+                            project_dir = PROJECTS_DIR / project_id
                             
-                            if video_path.exists():
+                            # Check for video files in order of preference
+                            possible_videos = [
+                                project_dir / "video.mp4",
+                                project_dir / "video_regenerated.mp4",
+                            ]
+                            
+                            for vp in possible_videos:
+                                if vp.exists():
+                                    video_path = vp
+                                    break
+                            
+                            if video_path and video_path.exists():
+                                logger.info(f"Gallery: Found video at {video_path}")
                                 # Read video as bytes to avoid caching issues
-                                with open(video_path, "rb") as video_file:
-                                    st.video(video_file.read())
+                                try:
+                                    with open(video_path, "rb") as video_file:
+                                        st.video(video_file.read())
+                                except Exception as e:
+                                    logger.error(f"Gallery: Error reading video {video_path}: {e}")
+                                    st.error(f"Error loading video: {e}")
                                 
                                 # Info
                                 info_col1, info_col2 = st.columns(2)
@@ -976,17 +1045,29 @@ with tab2:
                                         st.download_button(
                                             label="⬇️ Download",
                                             data=f,
-                                            file_name=f"{project['project_id']}.mp4",
+                                            file_name=f"{project_id}.mp4",
                                             mime="video/mp4",
-                                            key=f"download_{project['project_id']}",
+                                            key=f"download_{project_id}",
                                             use_container_width=True
                                         )
                                 
                                 with action_col2:
-                                    if st.button("🗑️ Delete", key=f"delete_{project['project_id']}", use_container_width=True):
-                                        project_dir = PROJECTS_DIR / project["project_id"]
+                                    if st.button("🗑️ Delete", key=f"delete_{project_id}", use_container_width=True):
                                         shutil.rmtree(project_dir)
                                         st.rerun()
+                            else:
+                                # No video found - show info about what we checked
+                                logger.warning(f"Gallery: No video found for {project_id}")
+                                logger.warning(f"Gallery: Checked paths: {[str(p) for p in possible_videos]}")
+                                st.warning(f"⚠️ Video file not found")
+                                st.caption(f"Checked: {', '.join([p.name for p in possible_videos])}")
+                                
+                                # Still show route info
+                                st.caption(f"📏 {project['route']['distance']} | 💰 ${project['costs']['total']}")
+                                
+                                # Offer to regenerate
+                                if st.button(f"🔄 Regenerate", key=f"regen_{project_id}"):
+                                    st.info(f"Run: `python regenerate_video.py --project {project_id}`")
                         
                         st.write("---")
 
