@@ -1,0 +1,46 @@
+{
+  "route": {
+    "start": "Santa Monica Pier, CA",
+    "end": "Venice Beach Boardwalk, CA",
+    "start_coords": [
+      34.0082821,
+      -118.4987585
+    ],
+    "end_coords": [
+      33.9909254,
+      -118.4774439
+    ],
+    "distance": "2.1 mi",
+    "duration": "13 mins"
+  },
+  "settings": {
+    "interval": 15,
+    "fps": 18,
+    "fov": 90,
+    "pitch": 0,
+    "overlays": true,
+    "has_audio": false
+  },
+  "costs": {
+    "geocoding": 0.01,
+    "directions": 0.005,
+    "streetview": 1.62,
+    "total": 1.63,
+    "calls": {
+      "geocoding": 2,
+      "directions": 1,
+      "streetview": 231
+    }
+  },
+  "images": {
+    "total": 231,
+    "successful": 231,
+    "failed": 0
+  },
+  "video": {
+    "path": "santamonicapier_venicebeachboardwalk_20251214_074335/video.mp4",
+    "duration_seconds": 12.833333333333334,
+    "size_mb": 10.61
+  },
+  "created_at": "2025-12-14T07:44:57.232859"
+}
