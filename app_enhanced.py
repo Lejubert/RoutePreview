@@ -109,6 +109,41 @@ EXAMPLE_ROUTES = {
         "end": "Coogee Beach, Sydney, Australia",
         "description": "Famous coastal walk"
     },
+    "🚶 Greenwich Village Walk (NYC)": {
+        "start": "Washington Square Park, New York, NY",
+        "end": "West Village, New York, NY",
+        "description": "Charming neighborhood stroll"
+    },
+    "🌸 Cherry Blossom Walk (DC)": {
+        "start": "Tidal Basin, Washington, DC",
+        "end": "Jefferson Memorial, Washington, DC",
+        "description": "Beautiful waterfront walk"
+    },
+    "🎨 Left Bank Paris Walk": {
+        "start": "Notre-Dame Cathedral, Paris, France",
+        "end": "Musée d'Orsay, Paris, France",
+        "description": "Seine riverside art district"
+    },
+    "🏰 Prague Castle Walk": {
+        "start": "Charles Bridge, Prague, Czech Republic",
+        "end": "Prague Castle, Prague, Czech Republic",
+        "description": "Historic Old Town to castle"
+    },
+    "🌳 Barcelona Gothic Quarter": {
+        "start": "Las Ramblas, Barcelona, Spain",
+        "end": "Barcelona Cathedral, Barcelona, Spain",
+        "description": "Medieval streets exploration"
+    },
+    "🎭 Covent Garden Stroll (London)": {
+        "start": "Covent Garden, London, UK",
+        "end": "Trafalgar Square, London, UK",
+        "description": "Theater district walk"
+    },
+    "🍜 Harajuku to Shibuya (Tokyo)": {
+        "start": "Meiji Shrine, Tokyo, Japan",
+        "end": "Shibuya Crossing, Tokyo, Japan",
+        "description": "Youth culture to bustling crossing"
+    },
     "Custom Route": {
         "start": "",
         "end": "",
@@ -445,26 +480,37 @@ def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10,
             f.write(f"file '{img.absolute()}'\n")
             f.write(f"duration {1/fps}\n")
     
-    # Base FFmpeg command
+    # Base FFmpeg command - audio input must come BEFORE filters!
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat",
         "-safe", "0",
         "-i", str(list_file),
+    ]
+    
+    # Add audio input if provided (must be before filters)
+    if audio_path and audio_path.exists():
+        logger.info(f"Adding audio: {audio_path}")
+        cmd.extend(["-i", str(audio_path)])
+    
+    # Add video processing
+    cmd.extend([
         "-vf", "scale=640:640:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
-    ]
+    ])
     
-    # Add audio if provided
+    # Add audio encoding if audio was added
     if audio_path and audio_path.exists():
-        cmd.extend(["-i", str(audio_path), "-c:a", "aac", "-shortest"])
+        cmd.extend(["-c:a", "aac", "-shortest"])
     
     cmd.append(str(output_path))
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"FFmpeg stderr: {result.stderr}")
         return result.returncode == 0
     except Exception as e:
         logger.error(f"FFmpeg error: {e}")
@@ -555,18 +601,18 @@ with tab1:
         pitch = st.slider(
             "Camera pitch (up/down angle)", 
             -45, 45, 0, 5,
-            help="0° = level, positive = up, negative = down"
+            help="0° = level horizon. Use +10° to +20° to see more sky/buildings. Use -10° to -20° to see more road/ground."
         )
         
         st.markdown("### 🎨 Enhancements")
-        add_overlays = st.checkbox("Add direction arrows", value=False)
+        add_overlays = st.checkbox("Add direction arrows", value=True, help="Shows a compass arrow and street name overlay")
         
         st.markdown("### 🎵 Audio")
         
-        # Audio presets
+        # Audio presets - Default to Calm Journey
         audio_preset = st.selectbox(
             "Background Music",
-            ["None", "Upload Custom", "Sample: Upbeat Travel", "Sample: Calm Journey"],
+            ["Sample: Calm Journey", "None", "Upload Custom", "Sample: Upbeat Travel"],
             index=0,
             help="Add background music to your video"
         )

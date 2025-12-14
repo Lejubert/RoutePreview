@@ -28,22 +28,30 @@ def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10,
             f.write(f"file '{img.absolute()}'\n")
             f.write(f"duration {1/fps}\n")
     
-    # Base FFmpeg command
+    # Base FFmpeg command - audio input must come BEFORE filters!
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat",
         "-safe", "0",
         "-i", str(list_file),
+    ]
+    
+    # Add audio input if provided (must be before filters)
+    if audio_path and audio_path.exists():
+        print(f"🎵 Adding audio: {audio_path}")
+        cmd.extend(["-i", str(audio_path)])
+    
+    # Add video processing
+    cmd.extend([
         "-vf", "scale=640:640:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-r", str(fps),
-    ]
+    ])
     
-    # Add audio if provided
+    # Add audio encoding if audio was added
     if audio_path and audio_path.exists():
-        print(f"🎵 Adding audio: {audio_path}")
-        cmd.extend(["-i", str(audio_path), "-c:a", "aac", "-shortest"])
+        cmd.extend(["-c:a", "aac", "-shortest"])
     
     cmd.append(str(output_path))
     
