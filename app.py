@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import math
 import time
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -32,6 +33,33 @@ OUTPUT_DIR = Path("output")
 TEMP_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Example routes for easy testing
+EXAMPLE_ROUTES = {
+    "🗽 Times Square → Central Park (NYC)": {
+        "start": "Times Square, New York, NY",
+        "end": "Central Park, New York, NY"
+    },
+    "🌉 Golden Gate → Fisherman's Wharf (SF)": {
+        "start": "Golden Gate Bridge, San Francisco, CA",
+        "end": "Fisherman's Wharf, San Francisco, CA"
+    },
+    "🏖️ Santa Monica → Venice Beach (LA)": {
+        "start": "Santa Monica Pier, Santa Monica, CA",
+        "end": "Venice Beach, Los Angeles, CA"
+    },
+    "Custom Route": {
+        "start": "",
+        "end": ""
+    }
+}
+
 
 # ============================================================================
 # CORE FUNCTIONS
@@ -39,20 +67,34 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 def geocode_address(address: str) -> tuple[float, float] | None:
     """Convert an address to lat/lng coordinates."""
+    logger.info(f"Geocoding: {address}")
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {"address": address, "key": GOOGLE_API_KEY}
     
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    if data["status"] == "OK":
-        location = data["results"][0]["geometry"]["location"]
-        return (location["lat"], location["lng"])
-    return None
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        status = data.get("status")
+        
+        logger.info(f"Geocoding status: {status}")
+        
+        if status == "OK":
+            location = data["results"][0]["geometry"]["location"]
+            coords = (location["lat"], location["lng"])
+            logger.info(f"✅ Found: {coords}")
+            return coords
+        else:
+            error_msg = data.get("error_message", "No error message")
+            logger.error(f"❌ Geocoding failed: {status} - {error_msg}")
+            return None
+    except Exception as e:
+        logger.error(f"❌ Geocoding exception: {str(e)}")
+        return None
 
 
 def get_route(origin: tuple, destination: tuple) -> dict | None:
     """Get route between two points using Google Directions API."""
+    logger.info(f"Getting route from {origin} to {destination}")
     url = "https://maps.googleapis.com/maps/api/directions/json"
     params = {
         "origin": f"{origin[0]},{origin[1]}",
@@ -60,19 +102,48 @@ def get_route(origin: tuple, destination: tuple) -> dict | None:
         "key": GOOGLE_API_KEY,
     }
     
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    if data["status"] == "OK":
-        route = data["routes"][0]
-        return {
-            "polyline": route["overview_polyline"]["encoded"],
-            "distance": route["legs"][0]["distance"]["text"],
-            "duration": route["legs"][0]["duration"]["text"],
-            "start_address": route["legs"][0]["start_address"],
-            "end_address": route["legs"][0]["end_address"],
-        }
-    return None
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        status = data.get("status")
+        logger.info(f"Directions API status: {status}")
+        
+        if status == "OK" and "routes" in data and len(data["routes"]) > 0:
+            route = data["routes"][0]
+            
+            # Check for required fields
+            if "overview_polyline" not in route:
+                logger.error("Missing overview_polyline in route")
+                return None
+            
+            if "legs" not in route or len(route["legs"]) == 0:
+                logger.error("Missing legs in route")
+                return None
+            
+            leg = route["legs"][0]
+            
+            result = {
+                "polyline": route["overview_polyline"].get("points", ""),
+                "distance": leg.get("distance", {}).get("text", "Unknown"),
+                "duration": leg.get("duration", {}).get("text", "Unknown"),
+                "start_address": leg.get("start_address", "Unknown"),
+                "end_address": leg.get("end_address", "Unknown"),
+            }
+            
+            if not result["polyline"]:
+                logger.error("Empty polyline in route")
+                return None
+            
+            logger.info(f"Route found: {result['distance']}, {result['duration']}")
+            return result
+        else:
+            error_msg = data.get("error_message", "No error message")
+            logger.error(f"Directions API failed: {status} - {error_msg}")
+            return None
+    except Exception as e:
+        logger.error(f"Directions API exception: {str(e)}")
+        return None
 
 
 def decode_polyline(encoded: str) -> list[tuple[float, float]]:
@@ -524,14 +595,28 @@ col1, col2 = st.columns([1, 1])
 with col1:
     st.markdown("### 📍 Enter Your Route")
     
+    # Example routes dropdown  
+    selected_example = st.selectbox(
+        "Choose an example or create custom",
+        options=list(EXAMPLE_ROUTES.keys()),
+        index=0,
+        help="Select a pre-configured route or choose 'Custom Route'"
+    )
+    
+    # Set default values based on selection
+    default_start = EXAMPLE_ROUTES[selected_example]["start"]
+    default_end = EXAMPLE_ROUTES[selected_example]["end"]
+    
     origin = st.text_input(
         "Starting Point",
+        value=default_start,
         placeholder="e.g., Times Square, New York",
         key="origin_input"
     )
     
     destination = st.text_input(
         "Destination",
+        value=default_end,
         placeholder="e.g., Central Park, New York",
         key="destination_input"
     )
@@ -581,19 +666,31 @@ with col2:
 
 # Process route
 if generate_btn and origin and destination:
+    logger.info(f"🎬 Starting video generation: {origin} → {destination}")
     cleanup_temp_dir()
     
     with st.status("🎬 Creating your Street View video...", expanded=True) as status:
         # Step 1: Geocode addresses
         st.write("📍 Finding locations...")
-        origin_coords = geocode_address(origin)
-        dest_coords = geocode_address(destination)
         
-        if not origin_coords or not dest_coords:
-            st.error("❌ Could not find one or both locations. Please try different addresses.")
+        origin_coords = geocode_address(origin)
+        if not origin_coords:
+            logger.error(f"Failed to geocode origin: {origin}")
+            st.error(f"❌ Could not find starting location: '{origin}'")
+            st.warning("⚠️ **Possible reasons:**\n- APIs not enabled in Google Cloud Console\n- Invalid API key\n- Billing not enabled")
+            st.info(f"📖 Read `SETUP_APIS.md` or run `python check_api.py` to diagnose")
             st.stop()
         
-        st.write(f"✅ Found: {origin} → {destination}")
+        dest_coords = geocode_address(destination)
+        if not dest_coords:
+            logger.error(f"Failed to geocode destination: {destination}")
+            st.error(f"❌ Could not find destination: '{destination}'")
+            st.warning("⚠️ **Possible reasons:**\n- APIs not enabled in Google Cloud Console\n- Invalid API key\n- Billing not enabled")
+            st.info(f"📖 Read `SETUP_APIS.md` or run `python check_api.py` to diagnose")
+            st.stop()
+        
+        st.write(f"✅ Start: {origin_coords[0]:.6f}, {origin_coords[1]:.6f}")
+        st.write(f"✅ End: {dest_coords[0]:.6f}, {dest_coords[1]:.6f}")
         
         # Step 2: Get route
         st.write("🛣️ Calculating route...")
@@ -618,11 +715,29 @@ if generate_btn and origin and destination:
         st.write(f"✅ Will capture {num_images} images")
         
         # Step 4: Fetch images
-        st.write("🖼️ Downloading Street View images...")
-        progress_bar = st.progress(0)
+        st.write("---")
+        st.write("### 🖼️ Downloading Street View images...")
+        
+        progress_bar = st.progress(0, text="Preparing...")
+        status_text = st.empty()
         
         successful_images = 0
+        failed_images = 0
+        start_time = time.time()
+        
         for i, point in enumerate(sampled_points):
+            # Update progress
+            progress = (i + 1) / num_images
+            elapsed = time.time() - start_time
+            estimated_total = elapsed / progress if progress > 0 else 0
+            remaining = estimated_total - elapsed
+            
+            progress_bar.progress(
+                progress,
+                text=f"Image {i+1}/{num_images} ({progress*100:.0f}%)"
+            )
+            status_text.text(f"⏱️ Elapsed: {elapsed:.1f}s | Est. remaining: ~{remaining:.1f}s | ✅ {successful_images} | ❌ {failed_images}")
+            
             image_data = fetch_street_view_image(
                 point["lat"],
                 point["lng"],
@@ -637,10 +752,16 @@ if generate_btn and origin and destination:
                 with open(image_path, "wb") as f:
                     f.write(image_data)
                 successful_images += 1
-            
-            progress_bar.progress((i + 1) / num_images)
+            else:
+                failed_images += 1
         
+        logger.info(f"Downloaded {successful_images}/{num_images} images")
         st.write(f"✅ Downloaded {successful_images}/{num_images} images")
+        
+        if successful_images < 5:
+            st.error("❌ Not enough images downloaded. Check your API setup.")
+            st.info("Run: `python check_api.py`")
+            st.stop()
         
         # Step 5: Create video
         st.write("🎥 Rendering video...")
