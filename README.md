@@ -2,7 +2,8 @@
 
 Transform any route into a cinematic Street View journey! Enter a start and end location, and this app creates a smooth video by stitching together Google Street View images along the path.
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://street-view-to-video.streamlit.app)
+There's no hosted demo right now; it runs locally with your own Google API key (see [Quick Start](#-quick-start)).
+
 ![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -14,30 +15,38 @@ Transform any route into a cinematic Street View journey! Enter a start and end 
 <tr>
 <td align="center">
 <strong>🗽 Times Square → Central Park (NYC)</strong><br/>
-<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
-<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/nyc-times-square-to-central-park.mp4"><img src="assets/nyc-times-square-to-central-park.gif" width="300" alt="🗽 Times Square → Central Park (NYC)"/></a><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/nyc-times-square-to-central-park.mp4">▶️ Full video (MP4)</a>
 </td>
 <td align="center">
 <strong>🏛️ Colosseum → Trevi Fountain (Rome)</strong><br/>
-<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
-<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/rome-colosseum-to-trevi-fountain.mp4"><img src="assets/rome-colosseum-to-trevi-fountain.gif" width="300" alt="🏛️ Colosseum → Trevi Fountain (Rome)"/></a><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/rome-colosseum-to-trevi-fountain.mp4">▶️ Full video (MP4)</a>
 </td>
 </tr>
 <tr>
 <td align="center">
 <strong>🏖️ Santa Monica → Venice Beach (LA)</strong><br/>
-<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
-<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/la-santa-monica-to-venice-beach.mp4"><img src="assets/la-santa-monica-to-venice-beach.gif" width="300" alt="🏖️ Santa Monica → Venice Beach (LA)"/></a><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/la-santa-monica-to-venice-beach.mp4">▶️ Full video (MP4)</a>
 </td>
 <td align="center">
 <strong>🌳 Las Ramblas → Barcelona Cathedral</strong><br/>
-<img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="300"/><br/>
-<a href="https://youtu.be/YOUR_VIDEO_ID">▶️ Watch on YouTube</a>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/barcelona-las-ramblas-to-cathedral.mp4"><img src="assets/barcelona-las-ramblas-to-cathedral.gif" width="300" alt="🌳 Las Ramblas → Barcelona Cathedral"/></a><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/barcelona-las-ramblas-to-cathedral.mp4">▶️ Full video (MP4)</a>
 </td>
+</tr>
+<tr>
+<td align="center">
+<strong>🇩🇪 East Side Gallery → Alexanderplatz (Berlin)</strong><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/berlin-east-side-gallery-to-alexanderplatz.mp4"><img src="assets/berlin-east-side-gallery-to-alexanderplatz.gif" width="300" alt="🇩🇪 East Side Gallery → Alexanderplatz (Berlin)"/></a><br/>
+<a href="https://github.com/aldrinjenson/street-view-to-video/releases/download/v1.0-examples/berlin-east-side-gallery-to-alexanderplatz.mp4">▶️ Full video (MP4)</a>
+</td>
+<td></td>
 </tr>
 </table>
 
-> 💡 *Videos generated with 15 FPS, 15m interval, and background music*
+> 💡 *Previews are 6-second GIFs; click for the full MP4. Most routes were captured every 15 m and rendered at 15 FPS (Santa Monica at 18 FPS; Barcelona re-rendered at 6 FPS from its 65 frames). All videos are on the [v1.0-examples release](https://github.com/aldrinjenson/street-view-to-video/releases/tag/v1.0-examples).*
 
 ---
 
