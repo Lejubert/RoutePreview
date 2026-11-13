@@ -25,6 +25,18 @@ Pour lancer le mode GPX, démarrez l'application avec :
 streamlit run app_enhanced.py
 ```
 
+## 🧭 Module Roadbook
+
+Un onglet **Roadbook** permet d'importer une trace GPX ou KML et d'en analyser le parcours sans recalculer sa géométrie :
+
+- Affichage de la trace sur OpenStreetMap, en conservant les segments distincts.
+- Calcul du kilométrage géodésique total.
+- Détection indicative des changements de direction et calcul de leur PK depuis le départ.
+- Affichage des waypoints contenus dans le fichier.
+- Enrichissement facultatif des points de changement de direction avec des attributs OpenStreetMap via Overpass (nom et catégorie de voie, vitesse maximale, nombre de voies et surface lorsqu'ils sont renseignés).
+
+Les directions sont déduites des angles de la trace GPS : elles ne remplacent pas un guidage routier ni une validation terrain. Les attributs OSM sont indicatifs, parfois absents ou incomplets ; le rapprochement avec la voie la plus proche peut être approximatif. La requête Overpass est facultative et dépend de la disponibilité du service public. Aucun appel Google Directions n'est effectué pour une trace importée.
+
 ## 🎥 Example Videos
 
 <table>
