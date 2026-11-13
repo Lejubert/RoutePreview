@@ -23,6 +23,7 @@ from streamlit_searchbox import st_searchbox
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+from gpx_import import parse_gpx, sample_gpx_segments
 
 # Load environment variables
 load_dotenv()
@@ -689,10 +690,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Check API key
-if not GOOGLE_API_KEY:
-    st.error("⚠️ Google API key not found! Please add `GOOGLE_API_KEY` to your `.env` file.")
-    st.stop()
+# GPX inspection and map preview are available without a Google API key.
 
 # Header
 st.markdown("""
@@ -713,6 +711,22 @@ with tab1:
     # Sidebar settings
     with st.sidebar:
         st.markdown("## ⚙️ Settings")
+
+        st.markdown("### 🔑 Google API key")
+        if "google_api_key_input" not in st.session_state:
+            st.session_state.google_api_key_input = get_api_key() or ""
+        api_key_input = st.text_input(
+            "Google API key",
+            type="password",
+            key="google_api_key_input",
+            help="Facultative pour analyser et afficher un GPX. Nécessaire uniquement pour les appels Google (Street View et Directions)."
+        )
+        GOOGLE_API_KEY = api_key_input.strip() or None
+        if GOOGLE_API_KEY:
+            st.caption("✅ Clé renseignée — génération Street View disponible")
+        else:
+            st.caption("ℹ️ Sans clé : analyse GPX et carte disponibles ; génération Street View désactivée.")
+        st.markdown("---")
         
         st.markdown("### 📍 Image Capture")
         interval = st.slider(
@@ -781,92 +795,161 @@ with tab1:
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("### 📍 Enter Your Route")
-        
-        selected_example = st.selectbox(
-            "Choose an example or create custom",
-            options=list(EXAMPLE_ROUTES.keys()),
-            index=0,
-            help="Popular routes from around the world",
-            key="route_selector"
+        st.markdown("### 📍 Définir le tracé")
+        route_mode = st.radio(
+            "Source du parcours",
+            ["Adresses (Google Directions)", "Fichier GPX (tracé exact)"],
+            horizontal=True, key="route_source_mode",
+            help="En mode GPX, le fichier fourni fait foi : aucun recalcul d'itinéraire n'est effectué."
         )
-        
-        # Clear route coords when changing routes
-        if "last_selected_route" not in st.session_state:
-            st.session_state.last_selected_route = selected_example
-        elif st.session_state.last_selected_route != selected_example:
-            st.session_state.route_coords = None
-            st.session_state.last_selected_route = selected_example
-        
-        # Show description
-        route_desc = EXAMPLE_ROUTES[selected_example].get("description", "")
-        if route_desc:
-            st.caption(f"ℹ️ {route_desc}")
-        
-        default_start = EXAMPLE_ROUTES[selected_example]["start"]
-        default_end = EXAMPLE_ROUTES[selected_example]["end"]
-        
-        # Create a unique key suffix based on the selected route to force re-render
-        route_key = selected_example.replace(" ", "_").replace(",", "").replace("→", "_")[:30]
-        
-        # Use autocomplete search boxes for location input
-        st.caption("📍 **Starting Point**")
-        origin = st_searchbox(
-            search_places,
-            key=f"origin_search_{route_key}",  # Dynamic key forces re-render
-            placeholder="Type to search places...",
-            default=default_start if default_start else None,
-            clear_on_submit=False,
-        )
-        
-        st.caption("📍 **Destination**")
-        destination = st_searchbox(
-            search_places,
-            key=f"destination_search_{route_key}",  # Dynamic key forces re-render
-            placeholder="Type to search places...",
-            default=default_end if default_end else None,
-            clear_on_submit=False,
-        )
-        
-        # Show selected values
-        if origin:
-            st.success(f"✅ Start: {origin}")
-        if destination:
-            st.success(f"✅ End: {destination}")
-        
-        generate_btn = st.button("🚀 Generate Video", type="primary", use_container_width=True)
-    
-    with col2:
-        st.markdown("### 🗺️ Route Preview")
-        
-        # Use route-specific center and zoom
-        route_info = EXAMPLE_ROUTES[selected_example]
-        map_center = route_info.get("center", [40.7128, -74.0060])
-        map_zoom = route_info.get("zoom", 12)
-        
-        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
-        
-        # Show route line if generated
-        if "route_coords" in st.session_state and st.session_state.route_coords:
-            coords = st.session_state.route_coords
-            folium.PolyLine(coords, color="#6366f1", weight=4, opacity=0.8).add_to(m)
-            folium.Marker(coords[0], popup="Start", icon=folium.Icon(color="green", icon="play")).add_to(m)
-            folium.Marker(coords[-1], popup="End", icon=folium.Icon(color="red", icon="stop")).add_to(m)
-            m.fit_bounds([coords[0], coords[-1]])
+        gpx_data = None
+        gpx_file_name = None
+        uploaded_gpx = None
+        origin = None
+        destination = None
+
+        if route_mode == "Fichier GPX (tracé exact)":
+            uploaded_gpx = st.file_uploader("Importer un fichier GPX", type=["gpx"], key="gpx_upload")
+            if uploaded_gpx is not None:
+                gpx_file_name = uploaded_gpx.name
+                try:
+                    gpx_data = parse_gpx(uploaded_gpx.getvalue())
+                    st.success(f"Fichier GPX analysé : {gpx_file_name}")
+                    elevations = [
+                        point["ele"]
+                        for segment in gpx_data["segments"]
+                        for point in segment
+                        if "ele" in point
+                    ]
+                    elevation_gain = sum(
+                        max(0.0, b["ele"] - a["ele"])
+                        for segment in gpx_data["segments"]
+                        for a, b in zip(segment, segment[1:])
+                        if "ele" in a and "ele" in b
+                    )
+                    elevation_loss = sum(
+                        max(0.0, a["ele"] - b["ele"])
+                        for segment in gpx_data["segments"]
+                        for a, b in zip(segment, segment[1:])
+                        if "ele" in a and "ele" in b
+                    )
+                    st.markdown("#### 📊 Première analyse du tracé")
+                    metric_cols = st.columns(4)
+                    metric_cols[0].metric("Distance", f"{gpx_data['distance_m'] / 1000:.2f} km")
+                    metric_cols[1].metric("Points", f"{gpx_data['point_count']:,}".replace(",", " "))
+                    metric_cols[2].metric("Segments", len(gpx_data["segments"]))
+                    metric_cols[3].metric("Waypoints", len(gpx_data["waypoints"]))
+                    if elevations:
+                        st.markdown("##### ⛰️ Profil altimétrique")
+                        elevation_profile = []
+                        profile_index = 0
+                        for segment in gpx_data["segments"]:
+                            for point in segment:
+                                elevation_profile.append(point.get("ele"))
+                                profile_index += 1
+                            # Keep a visual break between disconnected GPX segments.
+                            elevation_profile.append(None)
+                        st.line_chart({"Altitude (m)": elevation_profile})
+                        elevation_cols = st.columns(3)
+                        elevation_cols[0].metric("Altitude min.", f"{min(elevations):.0f} m")
+                        elevation_cols[1].metric("Altitude max.", f"{max(elevations):.0f} m")
+                        elevation_cols[2].metric(
+                            "Dénivelé + / −",
+                            f"+{elevation_gain:.0f} m / −{elevation_loss:.0f} m"
+                        )
+                    else:
+                        st.caption("Aucune altitude exploitable n'est renseignée dans ce fichier GPX.")
+                    origin = f"{gpx_file_name} — départ"
+                    destination = f"{gpx_file_name} — arrivée"
+                except ValueError as exc:
+                    st.error(str(exc))
+            st.caption("Les segments disjoints restent séparés. L'ordre des points du GPX est conservé. Cette analyse et la carte ne nécessitent aucune clé API.")
         else:
-            # Show approximate route location with a marker
-            folium.Marker(
-                map_center,
-                popup=f"{route_info['start']} → {route_info['end']}" if route_info['start'] else "Select a route",
-                icon=folium.Icon(color="blue", icon="info-sign")
-            ).add_to(m)
-        
-        # Use selected route as key to force map refresh when route changes
-        map_key = f"map_{selected_example.replace(' ', '_')}"
-        st_folium(m, width=None, height=400, use_container_width=True, key=map_key)
-    
+            selected_example = st.selectbox(
+                "Choisir un exemple ou créer un parcours",
+                options=list(EXAMPLE_ROUTES.keys()), index=0,
+                help="Parcours d'exemple ou adresses personnalisées", key="route_selector"
+            )
+            if "last_selected_route" not in st.session_state:
+                st.session_state.last_selected_route = selected_example
+            elif st.session_state.last_selected_route != selected_example:
+                st.session_state.route_coords = None
+                st.session_state.last_selected_route = selected_example
+            route_desc = EXAMPLE_ROUTES[selected_example].get("description", "")
+            if route_desc:
+                st.caption(f"ℹ️ {route_desc}")
+            default_start = EXAMPLE_ROUTES[selected_example]["start"]
+            default_end = EXAMPLE_ROUTES[selected_example]["end"]
+            route_key = selected_example.replace(" ", "_").replace(",", "").replace("→", "_")[:30]
+            st.caption("📍 **Point de départ**")
+            origin = st_searchbox(
+                search_places, key=f"origin_search_{route_key}",
+                placeholder="Saisir un lieu...", default=default_start if default_start else None,
+                clear_on_submit=False,
+            )
+            st.caption("📍 **Destination**")
+            destination = st_searchbox(
+                search_places, key=f"destination_search_{route_key}",
+                placeholder="Saisir un lieu...", default=default_end if default_end else None,
+                clear_on_submit=False,
+            )
+            if origin:
+                st.success(f"✅ Départ : {origin}")
+            if destination:
+                st.success(f"✅ Arrivée : {destination}")
+        generate_btn = st.button(
+            "🚀 Générer la vidéo" if GOOGLE_API_KEY else "🔒 Génération vidéo : clé API requise",
+            type="primary",
+            use_container_width=True,
+            disabled=not bool(GOOGLE_API_KEY),
+            help=None if GOOGLE_API_KEY else "Tu peux déjà analyser et visualiser ton GPX sans clé. Saisis une clé Google dans les paramètres pour créer la vidéo."
+        )
+
+    with col2:
+        st.markdown("### 🗺️ Aperçu du tracé")
+        if route_mode == "Fichier GPX (tracé exact)" and gpx_data:
+            all_points = [point for segment in gpx_data["segments"] for point in segment]
+            m = folium.Map(location=[all_points[0]["lat"], all_points[0]["lon"]], zoom_start=13, tiles="CartoDB dark_matter")
+            bounds = []
+            for segment_index, segment in enumerate(gpx_data["segments"]):
+                line = [[point["lat"], point["lon"]] for point in segment]
+                bounds.extend(line)
+                folium.PolyLine(line, color="#22c55e", weight=4, opacity=0.9,
+                                tooltip=f"Segment GPX {segment_index + 1}").add_to(m)
+            first_point = gpx_data["segments"][0][0]
+            last_point = gpx_data["segments"][-1][-1]
+            folium.Marker([first_point["lat"], first_point["lon"]], popup="Départ GPX",
+                          icon=folium.Icon(color="green", icon="play")).add_to(m)
+            folium.Marker([last_point["lat"], last_point["lon"]], popup="Fin GPX",
+                          icon=folium.Icon(color="red", icon="stop")).add_to(m)
+            for waypoint in gpx_data["waypoints"]:
+                point = waypoint["point"]
+                folium.CircleMarker([point["lat"], point["lon"]], radius=5,
+                                    color="#f59e0b", fill=True, popup=waypoint["name"]).add_to(m)
+            m.fit_bounds(bounds)
+            st_folium(m, width=None, height=400, use_container_width=True, key="gpx_route_map")
+        elif route_mode == "Fichier GPX (tracé exact)":
+            st.info("Importez un fichier GPX valide pour afficher son tracé.")
+        else:
+            route_info = EXAMPLE_ROUTES[selected_example]
+            map_center = route_info.get("center", [40.7128, -74.0060])
+            map_zoom = route_info.get("zoom", 12)
+            m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+            if "route_coords" in st.session_state and st.session_state.route_coords:
+                coords = st.session_state.route_coords
+                folium.PolyLine(coords, color="#6366f1", weight=4, opacity=0.8).add_to(m)
+                folium.Marker(coords[0], popup="Départ", icon=folium.Icon(color="green", icon="play")).add_to(m)
+                folium.Marker(coords[-1], popup="Arrivée", icon=folium.Icon(color="red", icon="stop")).add_to(m)
+                m.fit_bounds([coords[0], coords[-1]])
+            else:
+                folium.Marker(map_center,
+                    popup=f"{route_info['start']} → {route_info['end']}" if route_info["start"] else "Choisir un parcours",
+                    icon=folium.Icon(color="blue", icon="info-sign")).add_to(m)
+            map_key = "map_" + selected_example.replace(" ", "_")
+            st_folium(m, width=None, height=400, use_container_width=True, key=map_key)
+
     # Generate video
-    if generate_btn and origin and destination:
+    if generate_btn and ((route_mode == "Fichier GPX (tracé exact)" and gpx_data is not None) or (route_mode != "Fichier GPX (tracé exact)" and origin and destination)):
         logger.info(f"🎬 Starting video generation: {origin} → {destination}")
         
         # Create project ID and directory
@@ -880,44 +963,58 @@ with tab1:
         api_calls = {"geocoding": 0, "directions": 0, "streetview": 0}
         
         with st.status("🎬 Creating your Street View video...", expanded=True) as status:
-            # Step 1: Geocode
-            st.write("📍 Finding locations...")
-            origin_coords = geocode_address(origin)
-            api_calls["geocoding"] += 1
-            
-            if not origin_coords:
-                st.error(f"❌ Could not find starting location: '{origin}'")
-                st.stop()
-            
-            dest_coords = geocode_address(destination)
-            api_calls["geocoding"] += 1
-            
-            if not dest_coords:
-                st.error(f"❌ Could not find destination: '{destination}'")
-                st.stop()
-            
-            st.write(f"✅ Start: {origin_coords[0]:.6f}, {origin_coords[1]:.6f}")
-            st.write(f"✅ End: {dest_coords[0]:.6f}, {dest_coords[1]:.6f}")
-            
-            # Step 2: Get route
-            st.write("🛣️ Calculating route...")
-            route = get_route(origin_coords, dest_coords)
-            api_calls["directions"] += 1
-            
-            if not route:
-                st.error("❌ Could not find a route")
-                st.stop()
-            
-            route_coords = decode_polyline(route["polyline"])
-            st.session_state.route_coords = route_coords
-            
-            st.write(f"✅ Distance: {route['distance']}, Duration: {route['duration']}")
-            
-            # Step 3: Sample points
-            st.write("📸 Calculating image positions...")
-            sampled_points = sample_points_along_route(route_coords, interval)
+            if route_mode == "Fichier GPX (tracé exact)":
+                # GPX geometry is authoritative: no geocoding and no Directions request.
+                st.write("📍 Lecture du tracé GPX fourni...")
+                segments = gpx_data["segments"]
+                first, last = segments[0][0], segments[-1][-1]
+                origin_coords = (first["lat"], first["lon"])
+                dest_coords = (last["lat"], last["lon"])
+                route_coords = [(p["lat"], p["lon"]) for seg in segments for p in seg]
+                st.session_state.route_coords = route_coords
+                distance_label = f"{gpx_data['distance_m'] / 1000:.2f} km"
+                route = {
+                    "distance": distance_label,
+                    "duration": "Non estimée (tracé GPX)",
+                    "start_address": "Départ GPX",
+                    "end_address": "Arrivée GPX",
+                }
+                st.write(f"✅ {gpx_data['point_count']} points · {len(segments)} segment(s) · {distance_label}")
+                with open(project_dir / "route.gpx", "wb") as gpx_output:
+                    gpx_output.write(uploaded_gpx.getvalue())
+                sampled_points = sample_gpx_segments(segments, interval)
+            else:
+                # Keep the existing address-based workflow for backward compatibility.
+                st.write("📍 Recherche des lieux...")
+                origin_coords = geocode_address(origin)
+                api_calls["geocoding"] += 1
+                if not origin_coords:
+                    st.error(f"❌ Impossible de trouver le départ : '{origin}'")
+                    st.stop()
+                dest_coords = geocode_address(destination)
+                api_calls["geocoding"] += 1
+                if not dest_coords:
+                    st.error(f"❌ Impossible de trouver la destination : '{destination}'")
+                    st.stop()
+                st.write(f"✅ Départ : {origin_coords[0]:.6f}, {origin_coords[1]:.6f}")
+                st.write(f"✅ Arrivée : {dest_coords[0]:.6f}, {dest_coords[1]:.6f}")
+                st.write("🛣️ Calcul de l'itinéraire...")
+                route = get_route(origin_coords, dest_coords)
+                api_calls["directions"] += 1
+                if not route:
+                    st.error("❌ Aucun itinéraire trouvé")
+                    st.stop()
+                route_coords = decode_polyline(route["polyline"])
+                st.session_state.route_coords = route_coords
+                st.write(f"✅ Distance : {route['distance']}, durée : {route['duration']}")
+                st.write("📸 Calcul des positions des images...")
+                sampled_points = sample_points_along_route(route_coords, interval)
+
             num_images = len(sampled_points)
-            
+            if num_images == 0:
+                st.error("❌ Aucun point exploitable dans ce tracé.")
+                st.stop()
+
             # Calculate costs
             costs = calculate_costs(api_calls["geocoding"], api_calls["directions"], num_images)
             st.session_state.estimated_cost = costs
@@ -995,7 +1092,10 @@ with tab1:
                         "start_coords": origin_coords,
                         "end_coords": dest_coords,
                         "distance": route["distance"],
-                        "duration": route["duration"]
+                        "duration": route["duration"],
+                        "source": "GPX" if route_mode == "Fichier GPX (tracé exact)" else "Google Directions",
+                        "gpx_file": gpx_file_name if route_mode == "Fichier GPX (tracé exact)" else None,
+                        "gpx_point_count": gpx_data["point_count"] if route_mode == "Fichier GPX (tracé exact)" else None
                     },
                     "settings": {
                         "interval": interval,
