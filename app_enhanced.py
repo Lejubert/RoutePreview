@@ -598,11 +598,15 @@ with tab1:
         st.markdown("### 💰 Cost Estimator")
         if "estimated_cost" in st.session_state:
             cost_data = st.session_state.estimated_cost
+            calls = cost_data.get("calls", {})
+            total_requests = sum(calls.values())
             st.metric("Estimated Cost", f"${cost_data['total']}")
-            with st.expander("Cost Breakdown"):
-                st.write(f"Geocoding: ${cost_data['geocoding']}")
-                st.write(f"Directions: ${cost_data['directions']}")
-                st.write(f"Street View: ${cost_data['streetview']}")
+            st.metric("Google Maps API requests", f"{total_requests:,}".replace(",", " "))
+            with st.expander("Cost & request breakdown", expanded=True):
+                st.write(f"Geocoding: {calls.get('geocoding', 0)} request(s) — ${cost_data['geocoding']}")
+                st.write(f"Directions: {calls.get('directions', 0)} request(s) — ${cost_data['directions']}")
+                st.write(f"Street View: {calls.get('streetview', 0)} request(s) — ${cost_data['streetview']}")
+                st.caption("Places Autocomplete requests made while typing are separate and vary with your searches; they are not included in this generation estimate.")
     
     # Main content
     col1, col2 = st.columns([1, 1])
@@ -811,11 +815,31 @@ with tab1:
                 st.error("❌ Aucun point exploitable dans ce tracé.")
                 st.stop()
 
-            # Calculate costs
-            costs = calculate_costs(api_calls["geocoding"], api_calls["directions"], num_images)
+            # Estimate the Google Maps requests before downloading any Street View images.
+            planned_calls = {
+                "geocoding": api_calls["geocoding"],
+                "directions": api_calls["directions"],
+                "streetview": num_images,
+            }
+            costs = calculate_costs(
+                planned_calls["geocoding"],
+                planned_calls["directions"],
+                planned_calls["streetview"],
+            )
             st.session_state.estimated_cost = costs
-            
+
+            total_planned_requests = sum(planned_calls.values())
             st.write(f"✅ Will capture {num_images} images")
+            st.markdown("#### 📡 Google Maps API request estimate")
+            request_cols = st.columns(4)
+            request_cols[0].metric("Total requests", total_planned_requests)
+            request_cols[1].metric("Geocoding", planned_calls["geocoding"])
+            request_cols[2].metric("Directions", planned_calls["directions"])
+            request_cols[3].metric("Street View", planned_calls["streetview"])
+            if route_mode == "Fichier GPX (tracé exact)":
+                st.caption("GPX mode: no Geocoding or Directions requests. One Street View request is planned per sampled image.")
+            else:
+                st.caption("Address mode: 2 Geocoding requests + 1 Directions request + 1 Street View request per sampled image. Places Autocomplete requests made while typing are not included.")
             st.info(f"💰 Estimated cost: ${costs['total']}")
             
             # Step 4: Fetch images
@@ -855,7 +879,8 @@ with tab1:
                     
                     successful_images += 1
             
-            api_calls["streetview"] = successful_images
+            # Count every Street View HTTP request attempted, including failed image responses.
+            api_calls["streetview"] = num_images
             actual_costs = calculate_costs(api_calls["geocoding"], api_calls["directions"], api_calls["streetview"])
             
             st.write(f"✅ Downloaded {successful_images}/{num_images} images")
