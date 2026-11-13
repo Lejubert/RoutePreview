@@ -1374,6 +1374,7 @@ with tab3:
                     st.session_state.pop("roadbook_google_error", None)
                     st.session_state.pop("roadbook_google_steps_editor", None)
                     st.session_state.pop("roadbook_map_last_click", None)
+                    st.rerun()
                 except Exception as exc:
                     st.session_state.pop("roadbook_google_guidance", None)
                     st.session_state["roadbook_google_error"] = str(exc)
@@ -1394,9 +1395,9 @@ with tab3:
                         st.warning(warning)
                 if google_steps:
                     selected_indices_for_table = set(
-                    st.session_state.get("roadbook_google_selected_indices", list(range(len(google_steps))))
-                )
-                google_rows = [{
+                        st.session_state.get("roadbook_google_selected_indices", list(range(len(google_steps))))
+                    )
+                    google_rows = [{
                         "Exporter": index in selected_indices_for_table,
                         "PK trace (km)": round(item["google_pk_km"], 3),
                         "Instruction Google": item["google_instruction"],
