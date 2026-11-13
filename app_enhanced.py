@@ -674,16 +674,19 @@ with tab1:
                 st.caption("Places Autocomplete requests made while typing are separate and vary with your searches; they are not included in this generation estimate.")
     
     # Main content
+    st.markdown("### 📍 Définir le tracé")
+    # Display the source selector outside the two-column layout so the GPX
+    # option cannot be clipped on narrow screens.
+    route_mode = st.radio(
+        "Source du parcours",
+        ["Adresses (Google Directions)", "Fichier GPX (tracé exact)"],
+        horizontal=False, key="route_source_mode",
+        help="En mode GPX, le fichier fourni fait foi : aucun recalcul d'itinéraire n'est effectué."
+    )
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
-        st.markdown("### 📍 Définir le tracé")
-        route_mode = st.radio(
-            "Source du parcours",
-            ["Adresses (Google Directions)", "Fichier GPX (tracé exact)"],
-            horizontal=True, key="route_source_mode",
-            help="En mode GPX, le fichier fourni fait foi : aucun recalcul d'itinéraire n'est effectué."
-        )
         gpx_data = None
         gpx_file_name = None
         uploaded_gpx = None
