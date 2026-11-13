@@ -858,7 +858,7 @@ with tab1:
         st.markdown("### 🗺️ Aperçu du tracé")
         if route_mode == "Fichier GPX (tracé exact)" and gpx_data:
             all_points = [point for segment in gpx_data["segments"] for point in segment]
-            m = folium.Map(location=[all_points[0]["lat"], all_points[0]["lon"]], zoom_start=13, tiles="CartoDB dark_matter")
+            m = folium.Map(location=[all_points[0]["lat"], all_points[0]["lon"]], zoom_start=13, tiles="OpenStreetMap")
             bounds = []
             for segment_index, segment in enumerate(gpx_data["segments"]):
                 line = [[point["lat"], point["lon"]] for point in segment]
@@ -883,7 +883,7 @@ with tab1:
             route_info = EXAMPLE_ROUTES[selected_example]
             map_center = route_info.get("center", [40.7128, -74.0060])
             map_zoom = route_info.get("zoom", 12)
-            m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+            m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
             if "route_coords" in st.session_state and st.session_state.route_coords:
                 coords = st.session_state.route_coords
                 folium.PolyLine(coords, color="#6366f1", weight=4, opacity=0.8).add_to(m)
