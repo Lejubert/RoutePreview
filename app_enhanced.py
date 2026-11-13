@@ -1430,6 +1430,7 @@ with tab3:
                     if newly_selected_indices != st.session_state.get("roadbook_google_selected_indices", []):
                         st.session_state["roadbook_google_selected_indices"] = newly_selected_indices
                         st.session_state.pop("roadbook_map_last_click", None)
+                        st.rerun()
                     selected_google_rows = edited_google_rows.loc[
                         edited_google_rows["Exporter"]
                     ].drop(columns=["Exporter"])
