@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from gpx_import import parse_gpx, sample_gpx_segments
-from roadbook import parse_kml, analyze_directions, fetch_osm_road_context
+from roadbook import parse_kml, analyze_directions, fetch_osm_road_context, fetch_google_route_instructions
 
 # Load environment variables
 load_dotenv()
@@ -1134,6 +1134,8 @@ with tab3:
             st.session_state["roadbook_format"] = route_format
             st.session_state["roadbook_directions"] = analyze_directions(roadbook_data["segments"])
             st.session_state.pop("roadbook_osm_error", None)
+            st.session_state.pop("roadbook_google_guidance", None)
+            st.session_state.pop("roadbook_google_error", None)
         except ValueError as exc:
             st.error(str(exc))
             st.session_state.pop("roadbook_data", None)
@@ -1244,6 +1246,85 @@ with tab3:
             st.success("Informations routières OpenStreetMap récupérées pour les points où des voies ont été trouvées.")
         else:
             st.info("Les informations routières ne sont pas encore chargées. La disponibilité dépend de la couverture et des attributs OpenStreetMap.")
+
+        st.markdown("#### 🧭 Directions Google Maps (Routes API)")
+        st.caption(
+            "Google fournit des consignes et estimations en suivant des points de passage issus de la trace. "
+            "La ligne verte et les PK restent calculés exclusivement depuis le GPX/KML."
+        )
+        if not GOOGLE_API_KEY:
+            st.info("Renseigne une clé Google API dans les paramètres pour activer Routes API.")
+        else:
+            google_col1, google_col2 = st.columns([1, 1])
+            with google_col1:
+                anchor_spacing = st.select_slider(
+                    "Espacement des points de passage Google",
+                    options=[250, 500, 750, 1000, 1500, 2000],
+                    value=1000,
+                    format_func=lambda value: f"{value} m",
+                    help="Plus l'espacement est faible, plus Google est contraint de suivre la trace, mais le nombre de requêtes peut augmenter."
+                )
+            with google_col2:
+                max_deviation = st.select_slider(
+                    "Écart maximal indicatif",
+                    options=[25, 50, 75, 100, 150],
+                    value=75,
+                    format_func=lambda value: f"{value} m",
+                    help="Les étapes dont la géométrie Google s'écarte davantage de la trace sont signalées."
+                )
+            if st.button(
+                "Récupérer les directions Google",
+                key="roadbook_fetch_google",
+                help="Appelle Google Routes API. Les réponses ne remplacent jamais la trace importée."
+            ):
+                try:
+                    with st.spinner("Interrogation de Google Routes API…"):
+                        guidance = fetch_google_route_instructions(
+                            segments,
+                            GOOGLE_API_KEY,
+                            anchor_spacing_m=float(anchor_spacing),
+                            max_deviation_m=float(max_deviation),
+                        )
+                    st.session_state["roadbook_google_guidance"] = guidance
+                    st.session_state.pop("roadbook_google_error", None)
+                except Exception as exc:
+                    st.session_state.pop("roadbook_google_guidance", None)
+                    st.session_state["roadbook_google_error"] = str(exc)
+            google_error = st.session_state.get("roadbook_google_error")
+            if google_error:
+                st.error(google_error)
+                st.caption("Vérifie que Routes API est activée sur le projet Google Cloud, que la facturation est configurée et que la clé autorise cette API.")
+            guidance = st.session_state.get("roadbook_google_guidance")
+            if guidance:
+                google_steps = guidance.get("steps", [])
+                google_metrics = st.columns(3)
+                google_metrics[0].metric("Requêtes Google", guidance.get("request_count", 0))
+                google_metrics[1].metric("Instructions", len(google_steps))
+                flagged = sum(1 for item in google_steps if item["google_match_status"] == "Écart à vérifier")
+                google_metrics[2].metric("Écarts à vérifier", flagged)
+                if guidance.get("warnings"):
+                    for warning in guidance["warnings"]:
+                        st.warning(warning)
+                if google_steps:
+                    google_rows = [{
+                        "PK trace (km)": round(item["google_pk_km"], 3),
+                        "Instruction Google": item["google_instruction"],
+                        "Manœuvre": item.get("google_maneuver", ""),
+                        "Distance Google (m)": item.get("google_distance_m"),
+                        "Durée estimée (s)": round(item["google_duration_s"], 1) if item.get("google_duration_s") is not None else None,
+                        "Écart max. (m)": item.get("google_max_deviation_m"),
+                        "Correspondance": item["google_match_status"],
+                    } for item in google_steps]
+                    st.dataframe(google_rows, use_container_width=True, hide_index=True)
+                st.caption(
+                    "Le PK est projeté sur la trace importée. La distance et la durée sont celles estimées par Google pour l'étape calculée ; "
+                    "elles peuvent différer du kilométrage GPS. Les étapes signalées comme écartées doivent être contrôlées."
+                )
+        st.warning(
+            "Important pour les études de transport exceptionnel : Routes API en mode DRIVE ne valide pas les contraintes "
+            "de hauteur, largeur, longueur, masse, rayon de giration, ouvrages ou autorisations. Les informations doivent être "
+            "vérifiées séparément auprès des sources et autorités compétentes."
+        )
 
         st.markdown("#### 📌 Waypoints présents dans le fichier")
         waypoints = roadbook_data.get("waypoints", [])
