@@ -1146,6 +1146,8 @@ with tab3:
                 st.session_state["roadbook_route_signature"] = route_signature
                 st.session_state.pop("roadbook_osm_error", None)
                 st.session_state.pop("roadbook_google_guidance", None)
+                st.session_state.pop("roadbook_google_selected_indices", None)
+                st.session_state.pop("roadbook_map_last_click", None)
                 st.session_state.pop("roadbook_google_error", None)
                 st.session_state.pop("roadbook_google_steps_editor", None)
             except ValueError as exc:
@@ -1211,11 +1213,80 @@ with tab3:
                 fill=True, tooltip=waypoint["name"]
             ).add_to(route_map)
 
-        route_map.fit_bounds(bounds)
-        st_folium(
-            route_map, width=None, height=520, use_container_width=True,
-            key=f"roadbook_map_{file_name}"
+        # Google instruction markers are interactive. Their selection is kept
+        # in session state and shared with the export table below.
+        google_guidance_for_map = st.session_state.get("roadbook_google_guidance") or {}
+        google_steps_for_map = google_guidance_for_map.get("steps", [])
+        selected_google_indices = set(
+            st.session_state.get("roadbook_google_selected_indices", list(range(len(google_steps_for_map))))
         )
+        for step_index, step in enumerate(google_steps_for_map):
+            step_point = step.get("google_location")
+            if not step_point:
+                # The API helper currently returns PK but not a display coordinate;
+                # project the PK onto the imported segments for a stable map marker.
+                target_pk_m = float(step.get("google_pk_km", 0.0)) * 1000.0
+                walked = 0.0
+                for route_segment in segments:
+                    for point_a, point_b in zip(route_segment, route_segment[1:]):
+                        from gpx_import import haversine
+                        length_m = haversine(
+                            (point_a["lat"], point_a["lon"]),
+                            (point_b["lat"], point_b["lon"]),
+                        )
+                        if walked + length_m >= target_pk_m and length_m > 0:
+                            ratio = max(0.0, min(1.0, (target_pk_m - walked) / length_m))
+                            step_point = {
+                                "lat": point_a["lat"] + ratio * (point_b["lat"] - point_a["lat"]),
+                                "lon": point_a["lon"] + ratio * (point_b["lon"] - point_a["lon"]),
+                            }
+                            break
+                        walked += length_m
+                    if step_point:
+                        break
+            if step_point:
+                is_selected = step_index in selected_google_indices
+                marker_color = "#16a34a" if is_selected else "#9ca3af"
+                marker_status = "À conserver" if is_selected else "Exclue de l'export"
+                marker_tooltip = (
+                    f"ROUTE_PREVIEW_GOOGLE_STEP:{step_index} | "
+                    f"PK {step.get('google_pk_km', 0):.3f} km | {marker_status} | "
+                    f"{step.get('google_instruction', '')}"
+                )
+                folium.CircleMarker(
+                    [step_point["lat"], step_point["lon"]],
+                    radius=8, color=marker_color, fill=True,
+                    fill_color=marker_color, fill_opacity=0.95,
+                    tooltip=marker_tooltip,
+                ).add_to(route_map)
+
+        route_map.fit_bounds(bounds)
+        map_data = st_folium(
+            route_map, width=None, height=520, use_container_width=True,
+            key=f"roadbook_map_{file_name}",
+            returned_objects=["last_object_clicked_tooltip"],
+        )
+        clicked_tooltip = (map_data or {}).get("last_object_clicked_tooltip")
+        if clicked_tooltip and clicked_tooltip.startswith("ROUTE_PREVIEW_GOOGLE_STEP:"):
+            try:
+                clicked_index = int(clicked_tooltip.split(":", 1)[1].split("|", 1)[0])
+                click_token = f"{clicked_index}:{clicked_tooltip}"
+                if click_token != st.session_state.get("roadbook_map_last_click"):
+                    current_selection = set(
+                        st.session_state.get("roadbook_google_selected_indices", list(range(len(google_steps_for_map))))
+                    )
+                    if clicked_index in current_selection:
+                        current_selection.remove(clicked_index)
+                    else:
+                        current_selection.add(clicked_index)
+                    st.session_state["roadbook_google_selected_indices"] = sorted(current_selection)
+                    st.session_state["roadbook_map_last_click"] = click_token
+                    st.session_state.pop("roadbook_google_steps_editor", None)
+                    st.rerun()
+            except (TypeError, ValueError):
+                pass
+        elif not clicked_tooltip:
+            st.session_state.pop("roadbook_map_last_click", None)
 
         st.markdown("#### 🧭 Directions calculées depuis la trace")
         st.caption("Les changements de direction sont estimés à partir des angles entre segments GPS. Ils constituent une aide à la lecture, pas un guidage routier certifié.")
@@ -1299,8 +1370,11 @@ with tab3:
                             max_deviation_m=float(max_deviation),
                         )
                     st.session_state["roadbook_google_guidance"] = guidance
+                    st.session_state["roadbook_google_selected_indices"] = list(range(len(guidance.get("steps", []))))
                     st.session_state.pop("roadbook_google_error", None)
                     st.session_state.pop("roadbook_google_steps_editor", None)
+                    st.session_state.pop("roadbook_map_last_click", None)
+                    st.rerun()
                 except Exception as exc:
                     st.session_state.pop("roadbook_google_guidance", None)
                     st.session_state["roadbook_google_error"] = str(exc)
@@ -1320,8 +1394,11 @@ with tab3:
                     for warning in guidance["warnings"]:
                         st.warning(warning)
                 if google_steps:
+                    selected_indices_for_table = set(
+                        st.session_state.get("roadbook_google_selected_indices", list(range(len(google_steps))))
+                    )
                     google_rows = [{
-                        "Exporter": True,
+                        "Exporter": index in selected_indices_for_table,
                         "PK trace (km)": round(item["google_pk_km"], 3),
                         "Instruction Google": item["google_instruction"],
                         "Manœuvre": item.get("google_maneuver", ""),
@@ -1329,8 +1406,8 @@ with tab3:
                         "Durée estimée (s)": round(item["google_duration_s"], 1) if item.get("google_duration_s") is not None else None,
                         "Écart max. (m)": item.get("google_max_deviation_m"),
                         "Correspondance": item["google_match_status"],
-                    } for item in google_steps]
-                    st.caption("Décoche les étapes que tu ne souhaites pas conserver, puis exporte uniquement la sélection.")
+                    } for index, item in enumerate(google_steps)]
+                    st.caption("Clique sur un marqueur Google sur la carte pour l'inclure ou l'exclure. La sélection est synchronisée avec les cases « Exporter » ci-dessous.")
                     edited_google_rows = st.data_editor(
                         pd.DataFrame(google_rows),
                         use_container_width=True,
@@ -1347,6 +1424,13 @@ with tab3:
                             )
                         },
                     )
+                    newly_selected_indices = [
+                        int(index) for index, keep in enumerate(edited_google_rows["Exporter"].tolist()) if keep
+                    ]
+                    if newly_selected_indices != st.session_state.get("roadbook_google_selected_indices", []):
+                        st.session_state["roadbook_google_selected_indices"] = newly_selected_indices
+                        st.session_state.pop("roadbook_map_last_click", None)
+                        st.rerun()
                     selected_google_rows = edited_google_rows.loc[
                         edited_google_rows["Exporter"]
                     ].drop(columns=["Exporter"])
