@@ -73,7 +73,6 @@ streamlit run app_enhanced.py
 | 🗺️ **Interactive Map** | See your route preview before generating |
 | 📍 **Place Autocomplete** | Smart search with Google Places API |
 | 🧭 **Direction Compass** | Shows heading direction in each frame |
-| 🎵 **Background Music** | Add ambient music to your videos |
 | 🎚️ **Customizable** | Adjust FPS, interval, FOV, pitch |
 | 💰 **Cost Tracking** | Know your API costs upfront |
 | 📁 **Project Gallery** | View and manage all your generated videos |
@@ -164,7 +163,6 @@ The app will open at `http://localhost:8501`
    - 📷 Camera field of view
    - ⬆️ Camera pitch (up/down angle)
    - 🧭 Direction overlays
-   - 🎵 Background music
 3. **Generate** - Click "🚀 Generate Video"
 4. **Preview & Download** - Watch your video and download it!
 
@@ -196,7 +194,6 @@ street_view_to_video/
 ├── packages.txt          # System dependencies (FFmpeg)
 ├── .env                  # Your API key (not in git)
 ├── .streamlit/           # Streamlit configuration
-├── audio_samples/        # Background music files
 └── projects/             # Generated videos and images
     └── <route_timestamp>/
         ├── images/       # Street View frames
@@ -217,8 +214,6 @@ python regenerate_video.py --list
 # Regenerate with new settings
 python regenerate_video.py --project <project_id> --fps 30
 
-# Add music to existing video
-python regenerate_video.py --project <project_id> --audio audio_samples/calm_journey.mp3
 ```
 
 ---

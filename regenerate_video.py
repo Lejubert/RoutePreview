@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Regenerate video from existing images folder without re-downloading
-Useful for: adding music, changing FPS, or fixing corrupted videos
+Regenerate a silent video with a different FPS
 """
 
 import sys
@@ -10,65 +10,32 @@ import argparse
 from pathlib import Path
 import subprocess
 
-def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10, 
-                            audio_path: Path = None) -> bool:
-    """Create video from images using FFmpeg."""
+def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) -> bool:
+    """Create a silent video from the existing image sequence."""
     images = sorted(image_dir.glob("*.jpg"))
-    
     if not images:
-        print(f"❌ No images found in {image_dir}")
+        print(f"No images found in {image_dir}")
         return False
-    
-    print(f"✅ Found {len(images)} images")
-    
-    # Create file list for FFmpeg
     list_file = image_dir / "images.txt"
     with open(list_file, "w") as f:
         for img in images:
-            f.write(f"file '{img.absolute()}'\n")
-            f.write(f"duration {1/fps}\n")
-    
-    # Base FFmpeg command - audio input must come BEFORE filters!
+            f.write(f"file '{img.absolute()}'\\n")
+            f.write(f"duration {1/fps}\\n")
     cmd = [
-        "ffmpeg", "-y",
-        "-f", "concat",
-        "-safe", "0",
-        "-i", str(list_file),
-    ]
-    
-    # Add audio input if provided (must be before filters)
-    if audio_path and audio_path.exists():
-        print(f"🎵 Adding audio: {audio_path}")
-        cmd.extend(["-i", str(audio_path)])
-    
-    # Add video processing
-    cmd.extend([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-vf", "scale=640:640:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2",
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-r", str(fps),
-    ])
-    
-    # Add audio encoding if audio was added
-    if audio_path and audio_path.exists():
-        cmd.extend(["-c:a", "aac", "-shortest"])
-    
-    cmd.append(str(output_path))
-    
-    print(f"🎥 Creating video: {output_path}")
-    
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
+        "-an", str(output_path),
+    ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
-            print(f"✅ Video created successfully!")
-            print(f"   Size: {output_path.stat().st_size / (1024*1024):.2f} MB")
+            print(f"Video created successfully: {output_path}")
             return True
-        else:
-            print(f"❌ FFmpeg error:")
-            print(result.stderr)
-            return False
+        print(result.stderr)
+        return False
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         return False
 
 
@@ -108,11 +75,7 @@ Examples:
   # Regenerate latest project with different FPS
   python regenerate_video.py --project santamonicapier_venicebeachboardwalk_20251214_074335 --fps 20
   
-  # Add music to existing project
-  python regenerate_video.py --project <project_id> --audio audio_samples/upbeat.mp3
-  
-  # Change both FPS and add music
-  python regenerate_video.py --project <project_id> --fps 15 --audio my_music.mp3
+  python regenerate_video.py --project <project_id> --fps 15 
         """
     )
     
@@ -135,11 +98,6 @@ Examples:
         help="Frames per second (default: use original setting)"
     )
     
-    parser.add_argument(
-        "--audio", "-a",
-        type=str,
-        help="Path to audio file (MP3)"
-    )
     
     parser.add_argument(
         "--output", "-o",
@@ -215,15 +173,6 @@ Examples:
     
     print(f"⚙️  Settings: FPS = {fps}")
     
-    # Audio
-    audio_path = None
-    if args.audio:
-        audio_path = Path(args.audio)
-        if not audio_path.exists():
-            print(f"⚠️  Audio file not found: {audio_path}")
-            print("   Continuing without audio...")
-            audio_path = None
-    
     # Output
     if args.output:
         output_filename = args.output
@@ -234,7 +183,7 @@ Examples:
     
     # Create video
     print()
-    success = create_video_from_images(images_dir, output_path, fps, audio_path)
+    success = create_video_from_images(images_dir, output_path, fps)
     
     if success:
         print(f"\n✅ Video saved to: {output_path}")
