@@ -671,7 +671,7 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1>⛟ Route Preview</h1>
-    <p>Transform any route into a cinematic Street View journey</p>
+    <p>Transform any route into a Street View video</p>
 </div>
 """, unsafe_allow_html=True)
 
