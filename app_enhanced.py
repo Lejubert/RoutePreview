@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from gpx_import import parse_gpx, sample_gpx_segments
+from roadbook import parse_kml, analyze_directions, fetch_osm_road_context
 
 # Load environment variables
 load_dotenv()
@@ -569,7 +570,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create tabs
-tab1, tab2 = st.tabs(["🎬 Create Video", "📁 Video Gallery"])
+tab1, tab2, tab3 = st.tabs(["🎬 Create Video", "📁 Video Gallery", "🧭 Roadbook"])
 
 # ============================================================================
 # TAB 1: CREATE VIDEO
@@ -1101,6 +1102,164 @@ with tab2:
                                     st.info(f"Run: `python regenerate_video.py --project {project_id}`")
                         
                         st.write("---")
+
+
+# ============================================================================
+# TAB 3: ROADBOOK - IMPORT, ROUTE MAPPING, MILEAGE AND DIRECTIONS
+# ============================================================================
+
+with tab3:
+    st.markdown("### 🧭 Générateur de roadbook")
+    st.caption("Importe une trace GPX ou KML. La géométrie importée reste la référence : aucune route alternative n'est calculée.")
+
+    roadbook_file = st.file_uploader(
+        "Importer une trace GPX ou KML",
+        type=["gpx", "kml"],
+        key="roadbook_route_file",
+        help="GPX (track/route) et KML (LineString, MultiGeometry et gx:Track) sont acceptés."
+    )
+
+    if roadbook_file is not None:
+        try:
+            raw_route = roadbook_file.getvalue()
+            if roadbook_file.name.lower().endswith(".kml"):
+                roadbook_data = parse_kml(raw_route)
+                route_format = "KML"
+            else:
+                roadbook_data = parse_gpx(raw_route)
+                route_format = "GPX"
+
+            st.session_state["roadbook_data"] = roadbook_data
+            st.session_state["roadbook_file_name"] = roadbook_file.name
+            st.session_state["roadbook_format"] = route_format
+            st.session_state["roadbook_directions"] = analyze_directions(roadbook_data["segments"])
+            st.session_state.pop("roadbook_osm_error", None)
+        except ValueError as exc:
+            st.error(str(exc))
+            st.session_state.pop("roadbook_data", None)
+
+    roadbook_data = st.session_state.get("roadbook_data")
+    if roadbook_data:
+        segments = roadbook_data["segments"]
+        directions = st.session_state.get("roadbook_directions", [])
+        distance_km = roadbook_data["distance_m"] / 1000
+        file_name = st.session_state.get("roadbook_file_name", "Trace importée")
+        route_format = st.session_state.get("roadbook_format", "GPX")
+
+        st.success(f"{route_format} chargé : {file_name}")
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("Kilométrage total", f"{distance_km:.3f} km")
+        metric_cols[1].metric("Points GPS", f"{roadbook_data['point_count']:,}".replace(",", " "))
+        metric_cols[2].metric("Segments", len(segments))
+        metric_cols[3].metric("Changements de direction", len(directions))
+
+        st.markdown("#### 🗺️ Cartographie du parcours")
+        all_points = [point for segment in segments for point in segment]
+        center = [all_points[0]["lat"], all_points[0]["lon"]]
+        route_map = folium.Map(location=center, zoom_start=13, tiles="OpenStreetMap")
+        bounds = []
+        for index, segment in enumerate(segments):
+            line = [[point["lat"], point["lon"]] for point in segment]
+            bounds.extend(line)
+            folium.PolyLine(
+                line, color="#16a34a", weight=5, opacity=0.9,
+                tooltip=f"Trace {route_format} — segment {index + 1}"
+            ).add_to(route_map)
+
+        first_point = segments[0][0]
+        last_point = segments[-1][-1]
+        folium.Marker(
+            [first_point["lat"], first_point["lon"]], tooltip="Départ",
+            icon=folium.Icon(color="green", icon="play")
+        ).add_to(route_map)
+        folium.Marker(
+            [last_point["lat"], last_point["lon"]], tooltip="Arrivée",
+            icon=folium.Icon(color="red", icon="flag")
+        ).add_to(route_map)
+
+        for index, item in enumerate(directions):
+            popup = (
+                f"PK {item['pk_km']:.3f} — {item['instruction']} "
+                f"({item['angle_deg']:+.0f}°)"
+            )
+            if item.get("road_name"):
+                popup += f" — {item['road_name']}"
+            folium.CircleMarker(
+                [item["lat"], item["lon"]], radius=6, color="#f59e0b",
+                fill=True, fill_opacity=0.95, tooltip=popup, popup=popup
+            ).add_to(route_map)
+
+        for waypoint in roadbook_data.get("waypoints", []):
+            point = waypoint["point"]
+            folium.CircleMarker(
+                [point["lat"], point["lon"]], radius=5, color="#3b82f6",
+                fill=True, tooltip=waypoint["name"]
+            ).add_to(route_map)
+
+        route_map.fit_bounds(bounds)
+        st_folium(
+            route_map, width=None, height=520, use_container_width=True,
+            key=f"roadbook_map_{file_name}"
+        )
+
+        st.markdown("#### 🧭 Directions calculées depuis la trace")
+        st.caption("Les changements de direction sont estimés à partir des angles entre segments GPS. Ils constituent une aide à la lecture, pas un guidage routier certifié.")
+        if directions:
+            direction_rows = []
+            for item in directions:
+                direction_rows.append({
+                    "PK (km)": round(item["pk_km"], 3),
+                    "Instruction": item["instruction"],
+                    "Angle": f"{item['angle_deg']:+.0f}°",
+                    "Latitude": round(item["lat"], 6),
+                    "Longitude": round(item["lon"], 6),
+                    "Voie OSM": item.get("road_name", "Non renseignée"),
+                    "Type OSM": item.get("road_type", ""),
+                    "Vitesse max. OSM": item.get("maxspeed", ""),
+                    "Voies OSM": item.get("lanes", ""),
+                    "Surface OSM": item.get("surface", ""),
+                })
+            st.dataframe(direction_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("Aucun changement de direction significatif détecté avec le seuil actuel (28°). La trace reste consultable sur la carte.")
+
+        st.markdown("#### 🛣️ Informations routières OpenStreetMap")
+        st.caption("Recherche facultative des voies proches des changements de direction : nom, catégorie, vitesse maximale, nombre de voies et surface lorsque ces attributs sont renseignés dans OpenStreetMap.")
+        if st.button(
+            "Récupérer les informations routières OSM",
+            key="roadbook_fetch_osm",
+            disabled=not bool(directions),
+            help="Interroge le service public Overpass d'OpenStreetMap pour les points de changement de direction."
+        ):
+            with st.spinner("Recherche des informations routières OpenStreetMap…"):
+                enriched, osm_error = fetch_osm_road_context(directions)
+                st.session_state["roadbook_directions"] = enriched
+                st.session_state["roadbook_osm_error"] = osm_error
+            st.rerun()
+
+        osm_error = st.session_state.get("roadbook_osm_error")
+        if osm_error:
+            st.warning(osm_error)
+        elif any(item.get("road_name") or item.get("road_type") for item in directions):
+            st.success("Informations routières OpenStreetMap récupérées pour les points où des voies ont été trouvées.")
+        else:
+            st.info("Les informations routières ne sont pas encore chargées. La disponibilité dépend de la couverture et des attributs OpenStreetMap.")
+
+        st.markdown("#### 📌 Waypoints présents dans le fichier")
+        waypoints = roadbook_data.get("waypoints", [])
+        if waypoints:
+            waypoint_rows = [{
+                "Nom": item["name"],
+                "Latitude": round(item["point"]["lat"], 6),
+                "Longitude": round(item["point"]["lon"], 6),
+            } for item in waypoints]
+            st.dataframe(waypoint_rows, use_container_width=True, hide_index=True)
+        else:
+            st.caption("Aucun waypoint distinct n'est présent dans le fichier importé.")
+
+        st.caption("Le kilométrage est calculé en distance géodésique entre les points successifs. Les segments GPX/KML disjoints ne sont jamais reliés artificiellement. Les données OSM peuvent être incomplètes et doivent être vérifiées sur le terrain.")
+    else:
+        st.info("Importe un fichier GPX ou KML pour afficher le parcours, calculer son kilométrage et analyser les changements de direction.")
 
 # Footer
 st.markdown("""
