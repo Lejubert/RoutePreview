@@ -9,6 +9,22 @@ There's no hosted demo right now; it runs locally with your own Google API key (
 
 ---
 
+## 🧭 Import d'un tracé GPX (mode expérimental)
+
+L'application propose désormais deux sources de parcours dans `app_enhanced.py` :
+- **Adresses** : le parcours est calculé par Google Directions, comme auparavant.
+- **Fichier GPX** : importe directement un fichier `.gpx`. La géométrie fournie est utilisée telle quelle pour l'aperçu cartographique et l'échantillonnage des images. Ce mode ne fait aucun appel à Google Geocoding ou Google Directions.
+
+Les points sont conservés dans leur ordre d'origine. Les différents segments d'une trace restent séparés afin de ne pas créer de liaison artificielle entre deux portions disjointes. Les waypoints sont affichés sur la carte et l'altitude est conservée lorsqu'elle existe dans le fichier.
+
+**À noter :** la clé Google reste nécessaire pour récupérer les images Street View. Le GPX ne garantit pas la disponibilité d'images Street View à chaque position. La distance affichée est calculée à partir de la géométrie GPX ; la durée de parcours n'est pas estimée.
+
+Pour lancer le mode GPX, démarrez l'application avec :
+
+```bash
+streamlit run app_enhanced.py
+```
+
 ## 🎥 Example Videos
 
 <table>
