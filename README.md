@@ -17,7 +17,7 @@ L'application propose désormais deux sources de parcours dans `app_enhanced.py`
 
 Les points sont conservés dans leur ordre d'origine. Les différents segments d'une trace restent séparés afin de ne pas créer de liaison artificielle entre deux portions disjointes. Les waypoints sont affichés sur la carte et l'altitude est conservée lorsqu'elle existe dans le fichier.
 
-**À noter :** la clé Google reste nécessaire pour récupérer les images Street View. Le GPX ne garantit pas la disponibilité d'images Street View à chaque position. La distance affichée est calculée à partir de la géométrie GPX ; la durée de parcours n'est pas estimée.
+**À noter :** l'import, l'analyse du GPX et l'aperçu cartographique fonctionnent sans clé Google. Une zone de saisie sécurisée (masquée) dans les paramètres permet d'ajouter la clé lorsque tu souhaites lancer la génération Street View ou utiliser les fonctions Google. Le GPX ne garantit pas la disponibilité d'images Street View à chaque position. La distance affichée est calculée à partir de la géométrie GPX ; la durée de parcours n'est pas estimée. Si le fichier contient des altitudes, l'application affiche également un profil altimétrique et des indicateurs de dénivelé.
 
 Pour lancer le mode GPX, démarrez l'application avec :
 
