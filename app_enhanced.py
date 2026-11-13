@@ -4,6 +4,7 @@ With video history, cost tracking, and GPX route preview
 """
 
 import os
+import base64
 import shutil
 import subprocess
 import math
@@ -15,6 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, List
 
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import polyline
 import folium
@@ -53,6 +55,40 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def render_video_with_speed(video_bytes: bytes, height: int = 480):
+    """Render an MP4 player with selectable playback speed."""
+    encoded_video = base64.b64encode(video_bytes).decode("ascii")
+    html = """
+    <div style="font-family: sans-serif; width: 100%;">
+      <div style="display:flex; align-items:center; gap:10px; margin:0 0 8px 0;">
+        <label for="playback-speed" style="font-size:14px;">Vitesse de lecture</label>
+        <select id="playback-speed" aria-label="Vitesse de lecture"
+          style="padding:6px 10px; border:1px solid #888; border-radius:6px; background:transparent;">
+          <option value="0.12">x0.12</option>
+          <option value="0.25">x0.25</option>
+          <option value="0.5">x0.5</option>
+          <option value="0.75">x0.75</option>
+          <option value="1" selected>x1</option>
+          <option value="2">x2</option>
+        </select>
+      </div>
+      <video id="route-preview-video" controls playsinline preload="metadata"
+        style="width:100%; max-height:70vh; background:#000; border-radius:8px;">
+        <source src="data:video/mp4;base64,__VIDEO_DATA__" type="video/mp4">
+        Votre navigateur ne peut pas lire cette vidéo.
+      </video>
+    </div>
+    <script>
+      const video = document.getElementById("route-preview-video");
+      const speed = document.getElementById("playback-speed");
+      speed.addEventListener("change", () => {
+        video.playbackRate = Number(speed.value);
+      });
+    </script>
+    """
+    components.html(html.replace("__VIDEO_DATA__", encoded_video), height=height, scrolling=False)
 
 # API Costs (per 1,000 requests)
 COST_GEOCODING = 5.00 / 1000
@@ -979,7 +1015,7 @@ with tab1:
 
             with col_video:
                 with open(latest_video_path, "rb") as video_file:
-                    st.video(video_file.read())
+                    render_video_with_speed(video_file.read(), height=480)
 
             with col_info:
                 st.markdown("#### 📊 Video Info")
@@ -1062,7 +1098,7 @@ with tab2:
                                 # Read video as bytes to avoid caching issues
                                 try:
                                     with open(video_path, "rb") as video_file:
-                                        st.video(video_file.read())
+                                        render_video_with_speed(video_file.read(), height=360)
                                 except Exception as e:
                                     logger.error(f"Gallery: Error reading video {video_path}: {e}")
                                     st.error(f"Error loading video: {e}")
