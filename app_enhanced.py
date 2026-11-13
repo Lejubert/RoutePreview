@@ -532,12 +532,12 @@ def render_video_player(video_path: Path, title: str = "Video") -> None:
         const video = document.getElementById("route-video");
         const buttons = Array.from(document.querySelectorAll("[data-rate]"));
         const label = document.getElementById("speed-label");
-        buttons.forEach((button) => button.addEventListener("click", () => {
+        buttons.forEach((button) => button.addEventListener("click", () => {{
           const rate = Number(button.dataset.rate);
           video.playbackRate = rate;
           buttons.forEach((item) => item.classList.toggle("active", item === button));
           label.textContent = rate === 1 ? "Vitesse normale" : rate.toLocaleString("fr-FR") + "×";
-        }));
+        }}));
       </script>
     </body>
     </html>
