@@ -1,6 +1,6 @@
 """
 Street View to Video Generator - Enhanced Version
-With video history, cost tracking, better organization, and audio support
+With video history, cost tracking, and GPX route preview
 """
 
 import os
@@ -600,48 +600,22 @@ def add_direction_overlay(image: Image.Image, heading: float, street_name: str =
     return image
 
 
-def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10, 
-                            audio_path: Optional[Path] = None) -> bool:
-    """Create video from images using FFmpeg, optionally with audio."""
+def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) -> bool:
+    """Create a silent video from the downloaded Street View images."""
     images = sorted(image_dir.glob("*.jpg"))
-    
     if not images:
         return False
-    
-    # Create file list for FFmpeg
     list_file = image_dir / "images.txt"
     with open(list_file, "w") as f:
         for img in images:
-            f.write(f"file '{img.absolute()}'\n")
-            f.write(f"duration {1/fps}\n")
-    
-    # Base FFmpeg command - audio input must come BEFORE filters!
+            f.write(f"file '{img.absolute()}'\\n")
+            f.write(f"duration {1/fps}\\n")
     cmd = [
-        "ffmpeg", "-y",
-        "-f", "concat",
-        "-safe", "0",
-        "-i", str(list_file),
-    ]
-    
-    # Add audio input if provided (must be before filters)
-    if audio_path and audio_path.exists():
-        logger.info(f"Adding audio: {audio_path}")
-        cmd.extend(["-i", str(audio_path)])
-    
-    # Add video processing
-    cmd.extend([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-vf", "scale=640:640:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2",
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-r", str(fps),
-    ])
-    
-    # Add audio encoding if audio was added
-    if audio_path and audio_path.exists():
-        cmd.extend(["-c:a", "aac", "-shortest"])
-    
-    cmd.append(str(output_path))
-    
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
+        "-an", str(output_path),
+    ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
@@ -650,6 +624,7 @@ def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10,
     except Exception as e:
         logger.error(f"FFmpeg error: {e}")
         return False
+
 
 
 # ============================================================================
@@ -754,32 +729,6 @@ with tab1:
         
         st.markdown("### 🎨 Enhancements")
         add_overlays = st.checkbox("Add direction arrows", value=True, help="Shows a compass arrow and street name overlay")
-        
-        st.markdown("### 🎵 Audio")
-        
-        # Audio presets - Default to Calm Journey
-        audio_preset = st.selectbox(
-            "Background Music",
-            ["Sample: Calm Journey", "None", "Upload Custom", "Sample: Upbeat Travel"],
-            index=0,
-            help="Add background music to your video"
-        )
-        
-        audio_file = None
-        audio_preset_path = None
-        
-        if audio_preset == "Upload Custom":
-            audio_file = st.file_uploader("Upload MP3 file", type=['mp3'])
-        elif audio_preset == "Sample: Upbeat Travel":
-            audio_preset_path = Path("audio_samples/upbeat_travel.mp3")
-            if not audio_preset_path.exists():
-                st.warning("⚠️ Sample music not found. See `DOWNLOAD_MUSIC.md` to add music files.")
-                audio_preset_path = None
-        elif audio_preset == "Sample: Calm Journey":
-            audio_preset_path = Path("audio_samples/calm_journey.mp3")
-            if not audio_preset_path.exists():
-                st.warning("⚠️ Sample music not found. See `DOWNLOAD_MUSIC.md` to add music files.")
-                audio_preset_path = None
         
         st.markdown("---")
         st.markdown("### 💰 Cost Estimator")
@@ -1071,17 +1020,7 @@ with tab1:
             # Step 5: Create video
             st.write("### 🎥 Rendering video...")
             
-            # Save audio if provided
-            audio_path = None
-            if audio_file:
-                audio_path = project_dir / "audio.mp3"
-                with open(audio_path, "wb") as f:
-                    f.write(audio_file.getbuffer())
-            elif audio_preset_path and audio_preset_path.exists():
-                audio_path = audio_preset_path
-            
-            video_path = project_dir / "video.mp4"
-            success = create_video_from_images(images_dir, video_path, fps, audio_path)
+            video_path = project_dir / "video.mp4"\n            success = create_video_from_images(images_dir, video_path, fps)
             
             if success and video_path.exists():
                 # Save metadata
@@ -1103,7 +1042,6 @@ with tab1:
                         "fov": fov,
                         "pitch": pitch,
                         "overlays": add_overlays,
-                        "has_audio": audio_file is not None
                     },
                     "costs": actual_costs,
                     "images": {
