@@ -1020,7 +1020,8 @@ with tab1:
             # Step 5: Create video
             st.write("### 🎥 Rendering video...")
             
-            video_path = project_dir / "video.mp4"\n            success = create_video_from_images(images_dir, video_path, fps)
+            video_path = project_dir / "video.mp4"
+            success = create_video_from_images(images_dir, video_path, fps)
             
             if success and video_path.exists():
                 # Save metadata
