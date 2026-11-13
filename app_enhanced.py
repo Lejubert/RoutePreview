@@ -10,11 +10,13 @@ import math
 import time
 import logging
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List
 
 import streamlit as st
+import pandas as pd
 import requests
 import polyline
 import folium
@@ -1120,25 +1122,36 @@ with tab3:
     )
 
     if roadbook_file is not None:
-        try:
-            raw_route = roadbook_file.getvalue()
-            if roadbook_file.name.lower().endswith(".kml"):
-                roadbook_data = parse_kml(raw_route)
-                route_format = "KML"
-            else:
-                roadbook_data = parse_gpx(raw_route)
-                route_format = "GPX"
+        raw_route = roadbook_file.getvalue()
+        route_signature = hashlib.sha256(
+            roadbook_file.name.encode("utf-8") + b"\\0" + raw_route
+        ).hexdigest()
 
-            st.session_state["roadbook_data"] = roadbook_data
-            st.session_state["roadbook_file_name"] = roadbook_file.name
-            st.session_state["roadbook_format"] = route_format
-            st.session_state["roadbook_directions"] = analyze_directions(roadbook_data["segments"])
-            st.session_state.pop("roadbook_osm_error", None)
-            st.session_state.pop("roadbook_google_guidance", None)
-            st.session_state.pop("roadbook_google_error", None)
-        except ValueError as exc:
-            st.error(str(exc))
-            st.session_state.pop("roadbook_data", None)
+        # Streamlit reruns the script after every interaction. Parse/reset only
+        # when the uploaded file actually changes, otherwise cached Google steps
+        # and the user's export selection would be lost.
+        if route_signature != st.session_state.get("roadbook_route_signature"):
+            try:
+                if roadbook_file.name.lower().endswith(".kml"):
+                    roadbook_data = parse_kml(raw_route)
+                    route_format = "KML"
+                else:
+                    roadbook_data = parse_gpx(raw_route)
+                    route_format = "GPX"
+
+                st.session_state["roadbook_data"] = roadbook_data
+                st.session_state["roadbook_file_name"] = roadbook_file.name
+                st.session_state["roadbook_format"] = route_format
+                st.session_state["roadbook_directions"] = analyze_directions(roadbook_data["segments"])
+                st.session_state["roadbook_route_signature"] = route_signature
+                st.session_state.pop("roadbook_osm_error", None)
+                st.session_state.pop("roadbook_google_guidance", None)
+                st.session_state.pop("roadbook_google_error", None)
+                st.session_state.pop("roadbook_google_steps_editor", None)
+            except ValueError as exc:
+                st.error(str(exc))
+                st.session_state.pop("roadbook_data", None)
+                st.session_state.pop("roadbook_route_signature", None)
 
     roadbook_data = st.session_state.get("roadbook_data")
     if roadbook_data:
@@ -1287,6 +1300,7 @@ with tab3:
                         )
                     st.session_state["roadbook_google_guidance"] = guidance
                     st.session_state.pop("roadbook_google_error", None)
+                    st.session_state.pop("roadbook_google_steps_editor", None)
                 except Exception as exc:
                     st.session_state.pop("roadbook_google_guidance", None)
                     st.session_state["roadbook_google_error"] = str(exc)
@@ -1307,6 +1321,7 @@ with tab3:
                         st.warning(warning)
                 if google_steps:
                     google_rows = [{
+                        "Exporter": True,
                         "PK trace (km)": round(item["google_pk_km"], 3),
                         "Instruction Google": item["google_instruction"],
                         "Manœuvre": item.get("google_maneuver", ""),
@@ -1315,7 +1330,40 @@ with tab3:
                         "Écart max. (m)": item.get("google_max_deviation_m"),
                         "Correspondance": item["google_match_status"],
                     } for item in google_steps]
-                    st.dataframe(google_rows, use_container_width=True, hide_index=True)
+                    st.caption("Décoche les étapes que tu ne souhaites pas conserver, puis exporte uniquement la sélection.")
+                    edited_google_rows = st.data_editor(
+                        pd.DataFrame(google_rows),
+                        use_container_width=True,
+                        hide_index=True,
+                        key="roadbook_google_steps_editor",
+                        disabled=[
+                            "PK trace (km)", "Instruction Google", "Manœuvre",
+                            "Distance Google (m)", "Durée estimée (s)",
+                            "Écart max. (m)", "Correspondance",
+                        ],
+                        column_config={
+                            "Exporter": st.column_config.CheckboxColumn(
+                                "Exporter", help="Inclure cette instruction dans le fichier exporté", default=True
+                            )
+                        },
+                    )
+                    selected_google_rows = edited_google_rows.loc[
+                        edited_google_rows["Exporter"]
+                    ].drop(columns=["Exporter"])
+                    csv_data = selected_google_rows.to_csv(
+                        index=False, sep=";", decimal=","
+                    ).encode("utf-8-sig")
+                    st.download_button(
+                        "Exporter les directions sélectionnées (CSV)",
+                        data=csv_data,
+                        file_name="directions_google_selection.csv",
+                        mime="text/csv",
+                        disabled=selected_google_rows.empty,
+                        key="roadbook_google_export_csv",
+                    )
+                    st.caption(
+                        f"{len(selected_google_rows)} étape(s) sélectionnée(s) sur {len(google_steps)}."
+                    )
                 st.caption(
                     "Le PK est projeté sur la trace importée. La distance et la durée sont celles estimées par Google pour l'étape calculée ; "
                     "elles peuvent différer du kilométrage GPS. Les étapes signalées comme écartées doivent être contrôlées."
