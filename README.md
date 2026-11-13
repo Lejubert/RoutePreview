@@ -35,7 +35,7 @@ Un onglet **Roadbook** permet d'importer une trace GPX ou KML et d'en analyser l
 - Affichage des waypoints contenus dans le fichier.
 - Enrichissement facultatif des points de changement de direction avec des attributs OpenStreetMap via Overpass (nom et catégorie de voie, vitesse maximale, nombre de voies et surface lorsqu'ils sont renseignés).
 
-Les directions sont déduites des angles de la trace GPS : elles ne remplacent pas un guidage routier ni une validation terrain. Les attributs OSM sont indicatifs, parfois absents ou incomplets ; le rapprochement avec la voie la plus proche peut être approximatif. La requête Overpass est facultative et dépend de la disponibilité du service public. Aucun appel Google Directions n'est effectué pour une trace importée.
+Les directions sont déduites des angles de la trace GPS : elles ne remplacent pas une validation terrain. Les attributs OSM sont indicatifs, parfois absents ou incomplets ; le rapprochement avec la voie la plus proche peut être approximatif. La requête Overpass est facultative et dépend de la disponibilité du service public. Le module peut aussi appeler Google Routes API (Compute Routes) pour obtenir des consignes et estimations à partir de points de passage `via` issus de la trace. La géométrie affichée et les PK restent ceux du GPX/KML ; les étapes Google sont comparées à la trace et les écarts dépassant le seuil choisi sont signalés. Le mode DRIVE standard ne valide pas les contraintes de transport exceptionnel.
 
 ## 🎥 Example Videos
 
