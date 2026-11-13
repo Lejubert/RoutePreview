@@ -632,8 +632,8 @@ def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) 
 # ============================================================================
 
 st.set_page_config(
-    page_title="Street View to Video",
-    page_icon="🎬",
+    page_title="Route Preview",
+    page_icon="⛟",
     layout="wide",
     initial_sidebar_state="expanded",
 )
