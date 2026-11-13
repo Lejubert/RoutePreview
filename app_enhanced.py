@@ -1,5 +1,5 @@
 """
-Street View to Video Generator - Enhanced Version
+Route Preview - Enhanced Version
 With video history, cost tracking, and GPX route preview
 """
 
