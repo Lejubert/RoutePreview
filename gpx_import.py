@@ -69,7 +69,7 @@ def parse_gpx(data: bytes | str) -> dict[str, Any]:
     if not segments:
         raise ValueError("Aucune trace ou route GPX exploitable (au moins 2 points par segment) n'a été trouvée.")
 
-    name_node = next((node for node in root if _local_name(node.tag) == "name"), None)
+    name_node = next((node for node in root.iter() if _local_name(node.tag) == "name"), None)
     name = name_node.text.strip() if name_node is not None and name_node.text else "Tracé GPX"
     total_points = sum(len(segment) for segment in segments)
     distance_m = sum(
