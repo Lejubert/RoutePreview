@@ -690,10 +690,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Check API key
-if not GOOGLE_API_KEY:
-    st.error("⚠️ Google API key not found! Please add `GOOGLE_API_KEY` to your `.env` file.")
-    st.stop()
+# GPX inspection and map preview are available without a Google API key.
 
 # Header
 st.markdown("""
@@ -714,6 +711,22 @@ with tab1:
     # Sidebar settings
     with st.sidebar:
         st.markdown("## ⚙️ Settings")
+
+        st.markdown("### 🔑 Google API key")
+        if "google_api_key_input" not in st.session_state:
+            st.session_state.google_api_key_input = get_api_key() or ""
+        api_key_input = st.text_input(
+            "Google API key",
+            type="password",
+            key="google_api_key_input",
+            help="Facultative pour analyser et afficher un GPX. Nécessaire uniquement pour les appels Google (Street View et Directions)."
+        )
+        GOOGLE_API_KEY = api_key_input.strip() or None
+        if GOOGLE_API_KEY:
+            st.caption("✅ Clé renseignée — génération Street View disponible")
+        else:
+            st.caption("ℹ️ Sans clé : analyse GPX et carte disponibles ; génération Street View désactivée.")
+        st.markdown("---")
         
         st.markdown("### 📍 Image Capture")
         interval = st.slider(
@@ -801,16 +814,46 @@ with tab1:
                 gpx_file_name = uploaded_gpx.name
                 try:
                     gpx_data = parse_gpx(uploaded_gpx.getvalue())
-                    st.success(
-                        f"GPX chargé : {gpx_data['point_count']} points · "
-                        f"{len(gpx_data['segments'])} segment(s) · "
-                        f"{gpx_data['distance_m'] / 1000:.2f} km"
+                    st.success(f"Fichier GPX analysé : {gpx_file_name}")
+                    elevations = [
+                        point["ele"]
+                        for segment in gpx_data["segments"]
+                        for point in segment
+                        if "ele" in point
+                    ]
+                    elevation_gain = sum(
+                        max(0.0, b["ele"] - a["ele"])
+                        for segment in gpx_data["segments"]
+                        for a, b in zip(segment, segment[1:])
+                        if "ele" in a and "ele" in b
                     )
+                    elevation_loss = sum(
+                        max(0.0, a["ele"] - b["ele"])
+                        for segment in gpx_data["segments"]
+                        for a, b in zip(segment, segment[1:])
+                        if "ele" in a and "ele" in b
+                    )
+                    st.markdown("#### 📊 Première analyse du tracé")
+                    metric_cols = st.columns(4)
+                    metric_cols[0].metric("Distance", f"{gpx_data['distance_m'] / 1000:.2f} km")
+                    metric_cols[1].metric("Points", f"{gpx_data['point_count']:,}".replace(",", " "))
+                    metric_cols[2].metric("Segments", len(gpx_data["segments"]))
+                    metric_cols[3].metric("Waypoints", len(gpx_data["waypoints"]))
+                    if elevations:
+                        elevation_cols = st.columns(3)
+                        elevation_cols[0].metric("Altitude min.", f"{min(elevations):.0f} m")
+                        elevation_cols[1].metric("Altitude max.", f"{max(elevations):.0f} m")
+                        elevation_cols[2].metric(
+                            "Dénivelé + / −",
+                            f"+{elevation_gain:.0f} m / −{elevation_loss:.0f} m"
+                        )
+                    else:
+                        st.caption("Aucune altitude exploitable n'est renseignée dans ce fichier GPX.")
                     origin = f"{gpx_file_name} — départ"
                     destination = f"{gpx_file_name} — arrivée"
                 except ValueError as exc:
                     st.error(str(exc))
-            st.caption("Les segments disjoints restent séparés. L'ordre des points du GPX est conservé.")
+            st.caption("Les segments disjoints restent séparés. L'ordre des points du GPX est conservé. Cette analyse et la carte ne nécessitent aucune clé API.")
         else:
             selected_example = st.selectbox(
                 "Choisir un exemple ou créer un parcours",
@@ -844,7 +887,13 @@ with tab1:
                 st.success(f"✅ Départ : {origin}")
             if destination:
                 st.success(f"✅ Arrivée : {destination}")
-        generate_btn = st.button("🚀 Générer la vidéo", type="primary", use_container_width=True)
+        generate_btn = st.button(
+            "🚀 Générer la vidéo" if GOOGLE_API_KEY else "🔒 Génération vidéo : clé API requise",
+            type="primary",
+            use_container_width=True,
+            disabled=not bool(GOOGLE_API_KEY),
+            help=None if GOOGLE_API_KEY else "Tu peux déjà analyser et visualiser ton GPX sans clé. Saisis une clé Google dans les paramètres pour créer la vidéo."
+        )
 
     with col2:
         st.markdown("### 🗺️ Aperçu du tracé")
