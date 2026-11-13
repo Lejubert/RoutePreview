@@ -840,6 +840,16 @@ with tab1:
                     metric_cols[2].metric("Segments", len(gpx_data["segments"]))
                     metric_cols[3].metric("Waypoints", len(gpx_data["waypoints"]))
                     if elevations:
+                        st.markdown("##### ⛰️ Profil altimétrique")
+                        elevation_profile = []
+                        profile_index = 0
+                        for segment in gpx_data["segments"]:
+                            for point in segment:
+                                elevation_profile.append(point.get("ele"))
+                                profile_index += 1
+                            # Keep a visual break between disconnected GPX segments.
+                            elevation_profile.append(None)
+                        st.line_chart({"Altitude (m)": elevation_profile})
                         elevation_cols = st.columns(3)
                         elevation_cols[0].metric("Altitude min.", f"{min(elevations):.0f} m")
                         elevation_cols[1].metric("Altitude max.", f"{max(elevations):.0f} m")
