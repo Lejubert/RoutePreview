@@ -1320,6 +1320,7 @@ with tab3:
                     "Le PK est projeté sur la trace importée. La distance et la durée sont celles estimées par Google pour l'étape calculée ; "
                     "elles peuvent différer du kilométrage GPS. Les étapes signalées comme écartées doivent être contrôlées."
                 )
+                st.caption("Google Maps Platform · Powered by Google, © 2026 Google")
         st.warning(
             "Important pour les études de transport exceptionnel : Routes API en mode DRIVE ne valide pas les contraintes "
             "de hauteur, largeur, longueur, masse, rayon de giration, ouvrages ou autorisations. Les informations doivent être "
