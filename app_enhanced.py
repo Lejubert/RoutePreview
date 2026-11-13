@@ -963,33 +963,44 @@ with tab1:
                 st.session_state.latest_project = project_id
                 st.balloons()
                 
-                # Display video
-                st.write("---")
-                st.markdown("### 🎬 Your Video")
-                
-                col_video, col_info = st.columns([3, 1])
-                
-                with col_video:
-                    # Read video as bytes to avoid caching issues
-                    with open(video_path, "rb") as video_file:
-                        st.video(video_file.read())
-                
-                with col_info:
-                    st.markdown("#### 📊 Video Info")
-                    st.metric("File Size", f"{metadata['video']['size_mb']} MB")
-                    st.metric("Duration", f"{metadata['video']['duration_seconds']:.1f}s")
-                    st.metric("Total Cost", f"${metadata['costs']['total']}")
-                    
-                    with open(video_path, "rb") as f:
-                        st.download_button(
-                            label="⬇️ Download Video",
-                            data=f,
-                            file_name=f"{project_id}.mp4",
-                            mime="video/mp4",
-                            use_container_width=True
-                        )
             else:
                 st.error("❌ Failed to create video. Make sure FFmpeg is installed.")
+
+    # Keep the latest generated video visible across Streamlit reruns.
+    latest_project_id = st.session_state.get("latest_project")
+    if latest_project_id:
+        latest_metadata = load_project_metadata(latest_project_id)
+        latest_video_path = PROJECTS_DIR / latest_project_id / "video.mp4"
+
+        if latest_metadata and latest_video_path.exists():
+            st.write("---")
+            st.markdown("### 🎬 Your Video")
+            col_video, col_info = st.columns([3, 1])
+
+            with col_video:
+                with open(latest_video_path, "rb") as video_file:
+                    st.video(video_file.read())
+
+            with col_info:
+                st.markdown("#### 📊 Video Info")
+                video_info = latest_metadata.get("video", {})
+                costs_info = latest_metadata.get("costs", {})
+                st.metric("File Size", f"{video_info.get('size_mb', 0)} MB")
+                st.metric("Duration", f"{video_info.get('duration_seconds', 0):.1f}s")
+                st.metric("Total Cost", f"${costs_info.get('total', 0)}")
+
+                with open(latest_video_path, "rb") as video_file:
+                    st.download_button(
+                        label="⬇️ Download Video",
+                        data=video_file.read(),
+                        file_name=f"{latest_project_id}.mp4",
+                        mime="video/mp4",
+                        use_container_width=True,
+                        key=f"download_latest_{latest_project_id}",
+                    )
+        else:
+            st.session_state.pop("latest_project", None)
+
 
 # ============================================================================
 # TAB 2: VIDEO GALLERY
