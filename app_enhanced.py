@@ -869,6 +869,8 @@ with tab1:
                                     color="#f59e0b", fill=True, popup=waypoint["name"]).add_to(m)
             m.fit_bounds(bounds)
             st_folium(m, width=None, height=400, use_container_width=True, key="gpx_route_map")
+        elif route_mode == "Fichier GPX (tracé exact)":
+            st.info("Importez un fichier GPX valide pour afficher son tracé.")
         else:
             route_info = EXAMPLE_ROUTES[selected_example]
             map_center = route_info.get("center", [40.7128, -74.0060])
