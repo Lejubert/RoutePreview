@@ -464,6 +464,35 @@ def add_direction_overlay(image: Image.Image, heading: float, street_name: str =
     return image
 
 
+def add_gps_overlay(image: Image.Image, lat: float, lng: float) -> Image.Image:
+    """Add the GPS coordinates corresponding to this frame in the lower-left corner."""
+    draw = ImageDraw.Draw(image)
+    coordinate_text = f"GPS  {lat:.6f}, {lng:.6f}"
+
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 18)
+    except OSError:
+        font = ImageFont.load_default()
+
+    padding_x, padding_y = 10, 7
+    bbox = draw.textbbox((0, 0), coordinate_text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    x, y = 12, image.height - text_height - 2 * padding_y - 12
+
+    draw.rectangle(
+        (x, y, x + text_width + 2 * padding_x, y + text_height + 2 * padding_y),
+        fill=(0, 0, 0),
+    )
+    draw.text(
+        (x + padding_x, y + padding_y - bbox[1]),
+        coordinate_text,
+        fill=(255, 255, 255),
+        font=font,
+    )
+    return image
+
+
 def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) -> bool:
     """Create a silent video from the downloaded Street View images."""
     images = sorted(image_dir.glob("*.jpg"))
@@ -866,16 +895,14 @@ with tab1:
                 )
                 
                 if image_data:
-                    # Add overlays if enabled
+                    # Every frame gets its exact sampled GPS coordinates.
+                    img = Image.open(BytesIO(image_data)).convert("RGB")
+                    img = add_gps_overlay(img, point["lat"], point["lng"])
+                    # The compass remains optional; GPS coordinates are always shown.
                     if add_overlays:
-                        img = Image.open(BytesIO(image_data))
                         img = add_direction_overlay(img, point["heading"])
-                        image_path = images_dir / f"frame_{i:05d}.jpg"
-                        img.save(image_path, "JPEG")
-                    else:
-                        image_path = images_dir / f"frame_{i:05d}.jpg"
-                        with open(image_path, "wb") as f:
-                            f.write(image_data)
+                    image_path = images_dir / f"frame_{i:05d}.jpg"
+                    img.save(image_path, "JPEG", quality=92)
                     
                     successful_images += 1
             
