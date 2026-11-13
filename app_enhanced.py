@@ -4,6 +4,7 @@ With video history, cost tracking, and GPX route preview
 """
 
 import os
+import base64
 import shutil
 import subprocess
 import math
@@ -493,6 +494,57 @@ def add_gps_overlay(image: Image.Image, lat: float, lng: float) -> Image.Image:
     return image
 
 
+
+def render_video_player(video_path: Path, title: str = "Video") -> None:
+    """Render a video player with in-page playback speed buttons."""
+    import streamlit.components.v1 as components
+
+    video_base64 = base64.b64encode(video_path.read_bytes()).decode("ascii")
+    html = f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body {{ margin: 0; background: transparent; color: #e5e7eb; font-family: sans-serif; }}
+        video {{ display: block; width: 100%; max-height: 620px; background: #000; border-radius: 8px; }}
+        .speed-controls {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 10px; }}
+        button {{ border: 1px solid #6366f1; border-radius: 7px; background: #17172a; color: #fff;
+                  padding: 7px 12px; cursor: pointer; font-size: 14px; }}
+        button.active {{ background: #4f46e5; border-color: #818cf8; }}
+        #speed-label {{ color: #c4b5fd; font-size: 13px; margin-left: 4px; }}
+      </style>
+    </head>
+    <body>
+      <video id="route-video" controls playsinline preload="metadata">
+        <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+        Votre navigateur ne prend pas en charge la lecture vidéo.
+      </video>
+      <div class="speed-controls" role="group" aria-label="Vitesse de lecture">
+        <strong>Vitesse :</strong>
+        <button type="button" data-rate="0.25">0,25×</button>
+        <button type="button" data-rate="0.5">0,5×</button>
+        <button type="button" data-rate="0.75">0,75×</button>
+        <button type="button" data-rate="1" class="active">1×</button>
+        <span id="speed-label">Vitesse normale</span>
+      </div>
+      <script>
+        const video = document.getElementById("route-video");
+        const buttons = Array.from(document.querySelectorAll("[data-rate]"));
+        const label = document.getElementById("speed-label");
+        buttons.forEach((button) => button.addEventListener("click", () => {
+          const rate = Number(button.dataset.rate);
+          video.playbackRate = rate;
+          buttons.forEach((item) => item.classList.toggle("active", item === button));
+          label.textContent = rate === 1 ? "Vitesse normale" : rate.toLocaleString("fr-FR") + "×";
+        }));
+      </script>
+    </body>
+    </html>
+    """
+    components.html(html, height=720, scrolling=False)
+
+
 def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) -> bool:
     """Create a silent video from the downloaded Street View images."""
     images = sorted(image_dir.glob("*.jpg"))
@@ -979,7 +1031,7 @@ with tab1:
 
             with col_video:
                 with open(latest_video_path, "rb") as video_file:
-                    st.video(video_file.read())
+                    render_video_player(latest_video_path, title="Dernière vidéo")
 
             with col_info:
                 st.markdown("#### 📊 Video Info")
@@ -1062,7 +1114,7 @@ with tab2:
                                 # Read video as bytes to avoid caching issues
                                 try:
                                     with open(video_path, "rb") as video_file:
-                                        st.video(video_file.read())
+                                        render_video_player(video_path, title="Vidéo de la galerie")
                                 except Exception as e:
                                     logger.error(f"Gallery: Error reading video {video_path}: {e}")
                                     st.error(f"Error loading video: {e}")
