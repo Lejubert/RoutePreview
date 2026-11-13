@@ -183,3 +183,244 @@ def fetch_osm_road_context(directions: list[dict[str, Any]], timeout: int = 20) 
         return directions, None
     except Exception as exc:
         return directions, f"Informations OpenStreetMap indisponibles : {exc}"
+
+
+def _sample_route_anchors(points: list[dict[str, float]], spacing_m: float) -> list[dict[str, float]]:
+    """Create pass-through anchors along one imported segment, retaining its PK."""
+    if spacing_m <= 0:
+        raise ValueError("L'espacement des points de référence doit être positif.")
+    if len(points) < 2:
+        return []
+
+    anchors = [{"lat": points[0]["lat"], "lon": points[0]["lon"], "pk_m": 0.0}]
+    cumulative = 0.0
+    next_target = spacing_m
+
+    for a, b in zip(points, points[1:]):
+        length = haversine((a["lat"], a["lon"]), (b["lat"], b["lon"]))
+        if length <= 0:
+            continue
+        while next_target < cumulative + length:
+            ratio = (next_target - cumulative) / length
+            anchors.append({
+                "lat": a["lat"] + ratio * (b["lat"] - a["lat"]),
+                "lon": a["lon"] + ratio * (b["lon"] - a["lon"]),
+                "pk_m": next_target,
+            })
+            next_target += spacing_m
+        cumulative += length
+
+    last = points[-1]
+    if haversine((anchors[-1]["lat"], anchors[-1]["lon"]), (last["lat"], last["lon"])) > 0.5:
+        anchors.append({"lat": last["lat"], "lon": last["lon"], "pk_m": cumulative})
+    else:
+        anchors[-1]["pk_m"] = cumulative
+    return anchors
+
+
+def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]) -> tuple[float, float]:
+    """Return (distance to imported trace in metres, local chainage in metres)."""
+    if len(points) < 2:
+        return float("inf"), 0.0
+
+    target_lat, target_lon = point
+    radius = 6_371_000.0
+    best_distance = float("inf")
+    best_chainage = 0.0
+    cumulative = 0.0
+
+    for a, b in zip(points, points[1:]):
+        segment_length = haversine((a["lat"], a["lon"]), (b["lat"], b["lon"]))
+        if segment_length <= 0:
+            continue
+        mean_lat = math.radians((a["lat"] + b["lat"] + target_lat) / 3.0)
+        ax = math.radians(a["lon"] - target_lon) * radius * math.cos(mean_lat)
+        ay = math.radians(a["lat"] - target_lat) * radius
+        bx = math.radians(b["lon"] - target_lon) * radius * math.cos(mean_lat)
+        by = math.radians(b["lat"] - target_lat) * radius
+        dx, dy = bx - ax, by - ay
+        denom = dx * dx + dy * dy
+        ratio = 0.0 if denom == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / denom))
+        distance = math.hypot(ax + ratio * dx, ay + ratio * dy)
+        if distance < best_distance:
+            best_distance = distance
+            best_chainage = cumulative + ratio * segment_length
+        cumulative += segment_length
+
+    return best_distance, best_chainage
+
+
+def _duration_seconds(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return float(value[:-1]) if value.endswith("s") else float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_google_route_instructions(
+    segments: list[list[dict[str, float]]],
+    api_key: str,
+    anchor_spacing_m: float = 1000.0,
+    max_deviation_m: float = 75.0,
+    timeout: int = 25,
+) -> dict[str, Any]:
+    """Fetch Google navigation steps constrained by pass-through points from the source trace.
+
+    The imported geometry is never replaced by Google's computed route. Each API response
+    is used only for textual steps and estimates. Step geometry is compared with the source
+    trace and flagged when its maximum sampled offset exceeds max_deviation_m.
+    """
+    if not api_key:
+        raise ValueError("Renseigne une clé Google API pour utiliser Routes API.")
+    if not segments:
+        raise ValueError("La trace ne contient aucun segment exploitable.")
+
+    import requests
+    import polyline
+
+    endpoint = "https://routes.googleapis.com/directions/v2:computeRoutes"
+    field_mask = ",".join([
+        "routes.legs.steps.navigationInstruction.instructions",
+        "routes.legs.steps.navigationInstruction.maneuver",
+        "routes.legs.steps.distanceMeters",
+        "routes.legs.steps.staticDuration",
+        "routes.legs.steps.startLocation",
+        "routes.legs.steps.polyline.encodedPolyline",
+    ])
+    all_steps: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    request_count = 0
+    global_offset_m = 0.0
+    max_intermediates = 10  # Avoid the higher-priced 11-25 waypoint request tier.
+
+    for segment_index, points in enumerate(segments):
+        if len(points) < 2:
+            continue
+        anchors = _sample_route_anchors(points, anchor_spacing_m)
+        if len(anchors) < 2:
+            continue
+
+        start_index = 0
+        while start_index < len(anchors) - 1:
+            end_index = min(start_index + max_intermediates + 1, len(anchors) - 1)
+            origin = anchors[start_index]
+            destination = anchors[end_index]
+            intermediates = anchors[start_index + 1:end_index]
+
+            body = {
+                "origin": {"location": {"latLng": {
+                    "latitude": origin["lat"], "longitude": origin["lon"]
+                }}},
+                "destination": {"location": {"latLng": {
+                    "latitude": destination["lat"], "longitude": destination["lon"]
+                }}},
+                "intermediates": [
+                    {"location": {"latLng": {
+                        "latitude": item["lat"], "longitude": item["lon"]
+                    }}, "via": True}
+                    for item in intermediates
+                ],
+                "travelMode": "DRIVE",
+                "languageCode": "fr-FR",
+                "units": "METRIC",
+                "optimizeWaypointOrder": False,
+            }
+
+            try:
+                response = requests.post(
+                    endpoint,
+                    json=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": api_key,
+                        "X-Goog-FieldMask": field_mask,
+                    },
+                    timeout=timeout,
+                )
+                if response.status_code >= 400:
+                    try:
+                        detail = response.json().get("error", {}).get("message", response.text)
+                    except Exception:
+                        detail = response.text
+                    raise RuntimeError(f"Google Routes API ({response.status_code}) : {detail}")
+                payload = response.json()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Échec de la requête Google Routes API sur le segment {segment_index + 1} "
+                    f"(portion {start_index + 1}) : {exc}"
+                ) from exc
+
+            request_count += 1
+            routes = payload.get("routes", [])
+            if not routes:
+                warnings.append(
+                    f"Aucune instruction Google retournée pour le segment {segment_index + 1}, "
+                    f"portion {start_index + 1}."
+                )
+                start_index = end_index
+                continue
+
+            for leg in routes[0].get("legs", []):
+                for step in leg.get("steps", []):
+                    nav = step.get("navigationInstruction", {})
+                    instruction = nav.get("instructions")
+                    if not instruction:
+                        continue
+
+                    encoded = step.get("polyline", {}).get("encodedPolyline", "")
+                    try:
+                        step_geometry = polyline.decode(encoded) if encoded else []
+                    except Exception:
+                        step_geometry = []
+
+                    deviations = [
+                        _nearest_chainage((lat, lon), points)[0]
+                        for lat, lon in step_geometry
+                    ]
+                    max_offset = max(deviations) if deviations else None
+
+                    start_location = step.get("startLocation", {}).get("latLng", {})
+                    if "latitude" in start_location and "longitude" in start_location:
+                        step_start = (start_location["latitude"], start_location["longitude"])
+                    elif step_geometry:
+                        step_start = step_geometry[0]
+                    else:
+                        step_start = (origin["lat"], origin["lon"])
+
+                    _, local_pk_m = _nearest_chainage(step_start, points)
+                    if max_offset is None:
+                        match_status = "Non vérifiable"
+                    elif max_offset <= max_deviation_m:
+                        match_status = "Proche de la trace"
+                    else:
+                        match_status = "Écart à vérifier"
+
+                    all_steps.append({
+                        "segment": segment_index + 1,
+                        "google_pk_km": (global_offset_m + local_pk_m) / 1000.0,
+                        "google_instruction": instruction,
+                        "google_maneuver": nav.get("maneuver", ""),
+                        "google_distance_m": step.get("distanceMeters"),
+                        "google_duration_s": _duration_seconds(step.get("staticDuration")),
+                        "google_max_deviation_m": round(max_offset, 1) if max_offset is not None else None,
+                        "google_match_status": match_status,
+                    })
+
+            start_index = end_index
+
+        global_offset_m += sum(
+            haversine((a["lat"], a["lon"]), (b["lat"], b["lon"]))
+            for a, b in zip(points, points[1:])
+        )
+
+    if not all_steps:
+        warnings.append("Google Routes API n'a fourni aucune instruction exploitable.")
+    return {
+        "steps": all_steps,
+        "request_count": request_count,
+        "warnings": warnings,
+        "anchor_spacing_m": anchor_spacing_m,
+        "max_deviation_m": max_deviation_m,
+    }
