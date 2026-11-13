@@ -472,8 +472,8 @@ def create_video_from_images(image_dir: Path, output_path: Path, fps: int = 10) 
     list_file = image_dir / "images.txt"
     with open(list_file, "w") as f:
         for img in images:
-            f.write(f"file '{img.absolute()}'\\n")
-            f.write(f"duration {1/fps}\\n")
+            f.write(f"file '{img.absolute()}'\n")
+            f.write(f"duration {1/fps}\n")
     cmd = [
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-vf", "scale=640:640:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2",
