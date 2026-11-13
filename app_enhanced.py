@@ -60,142 +60,6 @@ COST_DIRECTIONS = 5.00 / 1000
 COST_STREETVIEW = 7.00 / 1000
 
 # Example routes
-EXAMPLE_ROUTES = {
-    "🗽 Times Square → Central Park (NYC)": {
-        "start": "Times Square, New York, NY",
-        "end": "Central Park, New York, NY",
-        "description": "Classic NYC route through Midtown",
-        "center": [40.7614, -73.9776], "zoom": 14
-    },
-    "🌉 Golden Gate Bridge Walk (SF)": {
-        "start": "Golden Gate Bridge, San Francisco, CA",
-        "end": "Sausalito, CA",
-        "description": "Iconic bridge with bay views",
-        "center": [37.8199, -122.4783], "zoom": 13
-    },
-    "🏖️ Santa Monica to Venice (LA)": {
-        "start": "Santa Monica Pier, CA",
-        "end": "Venice Beach Boardwalk, CA",
-        "description": "Scenic Pacific Coast beach drive",
-        "center": [33.9990, -118.4790], "zoom": 14
-    },
-    "🎡 London Eye → Big Ben": {
-        "start": "London Eye, London, UK",
-        "end": "Big Ben, Westminster, London, UK",
-        "description": "Thames riverside landmarks",
-        "center": [51.5007, -0.1246], "zoom": 15
-    },
-    "🗼 Eiffel Tower → Arc de Triomphe": {
-        "start": "Eiffel Tower, Paris, France",
-        "end": "Arc de Triomphe, Paris, France",
-        "description": "Champs-Élysées iconic avenue",
-        "center": [48.8656, 2.3100], "zoom": 14
-    },
-    "🏛️ Colosseum → Trevi Fountain": {
-        "start": "Colosseum, Rome, Italy",
-        "end": "Trevi Fountain, Rome, Italy",
-        "description": "Ancient Rome to Baroque",
-        "center": [41.8955, 12.4823], "zoom": 15
-    },
-    "🌸 Shibuya → Tokyo Tower": {
-        "start": "Shibuya Crossing, Tokyo, Japan",
-        "end": "Tokyo Tower, Tokyo, Japan",
-        "description": "Modern Tokyo streets",
-        "center": [35.6595, 139.7050], "zoom": 14
-    },
-    "🌁 Lombard St → Pier 39 (SF)": {
-        "start": "Lombard Street, San Francisco, CA",
-        "end": "Pier 39, San Francisco, CA",
-        "description": "Crookedest street to waterfront",
-        "center": [37.8050, -122.4180], "zoom": 14
-    },
-    "🏛️ Lincoln Memorial → Capitol": {
-        "start": "Lincoln Memorial, Washington, DC",
-        "end": "US Capitol, Washington, DC",
-        "description": "National Mall monuments",
-        "center": [38.8893, -77.0200], "zoom": 14
-    },
-    "🎰 Vegas Strip Experience": {
-        "start": "Stratosphere Tower, Las Vegas, NV",
-        "end": "Welcome to Las Vegas Sign, NV",
-        "description": "Full Las Vegas Strip",
-        "center": [36.1147, -115.1728], "zoom": 13
-    },
-    "🌴 Miami Ocean Drive": {
-        "start": "Ocean Drive, Miami Beach, FL",
-        "end": "South Pointe Park, Miami Beach, FL",
-        "description": "Art Deco beachfront",
-        "center": [25.7825, -80.1324], "zoom": 14
-    },
-    "🏖️ Bondi to Coogee (Sydney)": {
-        "start": "Bondi Beach, Sydney, Australia",
-        "end": "Coogee Beach, Sydney, Australia",
-        "description": "Famous coastal walk",
-        "center": [-33.8915, 151.2767], "zoom": 14
-    },
-    "🚶 Greenwich Village Walk (NYC)": {
-        "start": "Washington Square Park, New York, NY",
-        "end": "West Village, New York, NY",
-        "description": "Charming neighborhood stroll",
-        "center": [40.7308, -74.0020], "zoom": 15
-    },
-    "🌸 Cherry Blossom Walk (DC)": {
-        "start": "Tidal Basin, Washington, DC",
-        "end": "Jefferson Memorial, Washington, DC",
-        "description": "Beautiful waterfront walk",
-        "center": [38.8814, -77.0365], "zoom": 15
-    },
-    "🎨 Left Bank Paris Walk": {
-        "start": "Notre-Dame Cathedral, Paris, France",
-        "end": "Musée d'Orsay, Paris, France",
-        "description": "Seine riverside art district",
-        "center": [48.8530, 2.3400], "zoom": 15
-    },
-    "🏰 Prague Castle Walk": {
-        "start": "Charles Bridge, Prague, Czech Republic",
-        "end": "Prague Castle, Prague, Czech Republic",
-        "description": "Historic Old Town to castle",
-        "center": [50.0865, 14.4100], "zoom": 15
-    },
-    "🌳 Barcelona Gothic Quarter": {
-        "start": "Las Ramblas, Barcelona, Spain",
-        "end": "Barcelona Cathedral, Barcelona, Spain",
-        "description": "Medieval streets exploration",
-        "center": [41.3825, 2.1769], "zoom": 15
-    },
-    "🎭 Covent Garden Stroll (London)": {
-        "start": "Covent Garden, London, UK",
-        "end": "Trafalgar Square, London, UK",
-        "description": "Theater district walk",
-        "center": [51.5117, -0.1240], "zoom": 15
-    },
-    "🍜 Harajuku to Shibuya (Tokyo)": {
-        "start": "Meiji Shrine, Tokyo, Japan",
-        "end": "Shibuya Crossing, Tokyo, Japan",
-        "description": "Youth culture to bustling crossing",
-        "center": [35.6700, 139.7030], "zoom": 14
-    },
-    "🇩🇪 Brandenburg Gate → Checkpoint Charlie (Berlin)": {
-        "start": "Brandenburg Gate, Berlin, Germany",
-        "end": "Checkpoint Charlie, Berlin, Germany",
-        "description": "Historic Cold War landmarks",
-        "center": [52.5163, 13.3900], "zoom": 14
-    },
-    "🧱 East Side Gallery → Alexanderplatz (Berlin)": {
-        "start": "East Side Gallery, Berlin, Germany",
-        "end": "Alexanderplatz, Berlin, Germany",
-        "description": "Berlin Wall art to iconic TV tower",
-        "center": [52.5050, 13.4400], "zoom": 14
-    },
-    "Custom Route": {
-        "start": "",
-        "end": "",
-        "description": "Enter your own locations",
-        "center": [40.7128, -74.0060], "zoom": 12
-    }
-}
-
-
 # ============================================================================
 # PROJECT MANAGEMENT
 # ============================================================================
@@ -814,38 +678,21 @@ with tab1:
                     st.error(str(exc))
             st.caption("Les segments disjoints restent séparés. L'ordre des points du GPX est conservé. Cette analyse et la carte ne nécessitent aucune clé API.")
         else:
-            selected_example = st.selectbox(
-                "Choisir un exemple ou créer un parcours",
-                options=list(EXAMPLE_ROUTES.keys()), index=0,
-                help="Parcours d'exemple ou adresses personnalisées", key="route_selector"
-            )
-            if "last_selected_route" not in st.session_state:
-                st.session_state.last_selected_route = selected_example
-            elif st.session_state.last_selected_route != selected_example:
-                st.session_state.route_coords = None
-                st.session_state.last_selected_route = selected_example
-            route_desc = EXAMPLE_ROUTES[selected_example].get("description", "")
-            if route_desc:
-                st.caption(f"ℹ️ {route_desc}")
-            default_start = EXAMPLE_ROUTES[selected_example]["start"]
-            default_end = EXAMPLE_ROUTES[selected_example]["end"]
-            route_key = selected_example.replace(" ", "_").replace(",", "").replace("→", "_")[:30]
-            st.caption("📍 **Point de départ**")
+            st.caption("Saisissez un départ et une destination, ou importez directement un fichier GPX.")
             origin = st_searchbox(
-                search_places, key=f"origin_search_{route_key}",
-                placeholder="Saisir un lieu...", default=default_start if default_start else None,
+                search_places, key="origin_search",
+                placeholder="Saisir le lieu de départ...",
                 clear_on_submit=False,
             )
-            st.caption("📍 **Destination**")
             destination = st_searchbox(
-                search_places, key=f"destination_search_{route_key}",
-                placeholder="Saisir un lieu...", default=default_end if default_end else None,
+                search_places, key="destination_search",
+                placeholder="Saisir le lieu d'arrivée...",
                 clear_on_submit=False,
             )
             if origin:
                 st.success(f"✅ Départ : {origin}")
             if destination:
-                st.success(f"✅ Arrivée : {destination}")
+                st.success(f"✅ Destination : {destination}")
         generate_btn = st.button(
             "🚀 Générer la vidéo" if GOOGLE_API_KEY else "🔒 Génération vidéo : clé API requise",
             type="primary",
@@ -880,10 +727,9 @@ with tab1:
         elif route_mode == "Fichier GPX (tracé exact)":
             st.info("Importez un fichier GPX valide pour afficher son tracé.")
         else:
-            route_info = EXAMPLE_ROUTES[selected_example]
-            map_center = route_info.get("center", [40.7128, -74.0060])
-            map_zoom = route_info.get("zoom", 12)
-            m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
+            # Generic initial view; the map recenters on the route when available.
+            map_center = [46.603354, 1.888334]
+            m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
             if "route_coords" in st.session_state and st.session_state.route_coords:
                 coords = st.session_state.route_coords
                 folium.PolyLine(coords, color="#6366f1", weight=4, opacity=0.8).add_to(m)
@@ -891,11 +737,12 @@ with tab1:
                 folium.Marker(coords[-1], popup="Arrivée", icon=folium.Icon(color="red", icon="stop")).add_to(m)
                 m.fit_bounds([coords[0], coords[-1]])
             else:
-                folium.Marker(map_center,
-                    popup=f"{route_info['start']} → {route_info['end']}" if route_info["start"] else "Choisir un parcours",
-                    icon=folium.Icon(color="blue", icon="info-sign")).add_to(m)
-            map_key = "map_" + selected_example.replace(" ", "_")
-            st_folium(m, width=None, height=400, use_container_width=True, key=map_key)
+                folium.Marker(
+                    map_center,
+                    popup="Saisissez un départ et une destination pour afficher le tracé.",
+                    icon=folium.Icon(color="blue", icon="info-sign")
+                ).add_to(m)
+            st_folium(m, width=None, height=400, use_container_width=True, key="route_map")
 
     # Generate video
     if generate_btn and ((route_mode == "Fichier GPX (tracé exact)" and gpx_data is not None) or (route_mode != "Fichier GPX (tracé exact)" and origin and destination)):
