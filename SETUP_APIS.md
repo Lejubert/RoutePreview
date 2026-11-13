@@ -79,18 +79,3 @@ Run: `streamlit run app.py`
 
 The app will work perfectly!
 
-
-### Google Routes API pour le module Roadbook
-
-Le module Roadbook utilise l'API REST **Routes API – Compute Routes** (et non l'ancienne Directions API) pour récupérer des instructions et estimations associées à une trace GPX/KML.
-
-1. Dans Google Cloud Console, active **Routes API** pour le même projet que la clé utilisée par RoutePreview.
-2. Vérifie que la facturation est activée et que la clé autorise Routes API.
-3. Conserve la clé dans les secrets Streamlit ou dans la variable d'environnement `GOOGLE_API_KEY` ; ne la place jamais dans le code ni dans un dépôt public.
-4. Dans RoutePreview, ouvre l'onglet **Roadbook** puis clique sur **Récupérer les directions Google**.
-
-Le module envoie des points de passage issus de la trace, marqués comme points de passage `via`, en conservant leur ordre. Il limite chaque requête à 10 points intermédiaires pour éviter le palier tarifaire supérieur lié aux requêtes de 11 à 25 points. Les longues traces sont découpées en plusieurs requêtes indépendantes.
-
-**Important :** Routes API calcule toujours une route routière entre les points fournis. Les étapes renvoyées sont donc comparées à la trace importée ; un écart supérieur au seuil choisi est signalé. La géométrie et les PK de référence ne sont jamais remplacés par la réponse Google. Le mode DRIVE standard ne tient pas lieu de calcul de gabarit poids lourd ni de validation d'itinéraire pour transport exceptionnel.
-
-Documentation : https://developers.google.com/maps/documentation/routes
