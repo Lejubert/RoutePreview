@@ -463,8 +463,8 @@ def fetch_street_view_panorama_id(
 ) -> str | None:
     """Return a Street View panorama ID when imagery exists at the requested point.
 
-    Only the panorama ID is returned: Google explicitly permits storing pano IDs,
-    while Street View image content itself must not be cached or exported.
+    Only the panorama ID is returned to the caller. Street View image content itself
+    must not be cached or exported.
     """
     if not api_key:
         raise ValueError("Une clé Google API est nécessaire pour Street View.")
