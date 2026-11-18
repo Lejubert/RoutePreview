@@ -259,6 +259,29 @@ def _duration_seconds(value: str | None) -> float | None:
         return None
 
 
+
+
+def _bearing_at_chainage(points: list[dict[str, float]], chainage_m: float) -> float | None:
+    """Return the forward bearing of the imported trace at a local chainage."""
+    if len(points) < 2:
+        return None
+    walked = 0.0
+    for point_a, point_b in zip(points, points[1:]):
+        length = haversine(
+            (point_a["lat"], point_a["lon"]),
+            (point_b["lat"], point_b["lon"]),
+        )
+        if length > 0 and walked + length >= chainage_m:
+            return bearing(
+                (point_a["lat"], point_a["lon"]),
+                (point_b["lat"], point_b["lon"]),
+            )
+        walked += length
+    return bearing(
+        (points[-2]["lat"], points[-2]["lon"]),
+        (points[-1]["lat"], points[-1]["lon"]),
+    )
+
 def fetch_google_route_instructions(
     segments: list[list[dict[str, float]]],
     api_key: str,
@@ -406,6 +429,12 @@ def fetch_google_route_instructions(
                         "google_duration_s": _duration_seconds(step.get("staticDuration")),
                         "google_max_deviation_m": round(max_offset, 1) if max_offset is not None else None,
                         "google_match_status": match_status,
+                        "google_location": {"lat": step_start[0], "lon": step_start[1]},
+                        "google_heading": (
+                            bearing(step_geometry[0], step_geometry[1])
+                            if len(step_geometry) >= 2
+                            else _bearing_at_chainage(points, local_pk_m)
+                        ),
                     })
 
             start_index = end_index
@@ -424,3 +453,36 @@ def fetch_google_route_instructions(
         "anchor_spacing_m": anchor_spacing_m,
         "max_deviation_m": max_deviation_m,
     }
+
+
+def fetch_street_view_panorama_id(
+    latitude: float,
+    longitude: float,
+    api_key: str,
+    timeout: int = 12,
+) -> str | None:
+    """Return a Street View panorama ID when imagery exists at the requested point.
+
+    Only the panorama ID is returned to the caller. Street View image content itself
+    must not be cached or exported.
+    """
+    if not api_key:
+        raise ValueError("Une clé Google API est nécessaire pour Street View.")
+    import requests
+
+    response = requests.get(
+        "https://maps.googleapis.com/maps/api/streetview/metadata",
+        params={
+            "location": f"{latitude},{longitude}",
+            "key": api_key,
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("status") == "OK":
+        return payload.get("pano_id")
+    if payload.get("status") in {"ZERO_RESULTS", "NOT_FOUND"}:
+        return None
+    message = payload.get("error_message") or payload.get("status", "réponse inconnue")
+    raise RuntimeError(f"Street View Metadata API : {message}")

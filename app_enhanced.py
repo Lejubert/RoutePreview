@@ -25,8 +25,10 @@ from streamlit_searchbox import st_searchbox
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+from urllib.parse import urlencode
+import html
 from gpx_import import parse_gpx, sample_gpx_segments
-from roadbook import parse_kml, analyze_directions, fetch_osm_road_context, fetch_google_route_instructions
+from roadbook import parse_kml, analyze_directions, fetch_osm_road_context, fetch_google_route_instructions, fetch_street_view_panorama_id
 
 # Load environment variables
 load_dotenv()
@@ -1448,6 +1450,72 @@ with tab3:
                     st.caption(
                         f"{len(selected_google_rows)} étape(s) sélectionnée(s) sur {len(google_steps)}."
                     )
+
+                    st.markdown("#### 📷 Photos Street View")
+                    st.caption(
+                        "Les images sont récupérées uniquement lorsque tu cliques sur le bouton, "
+                        "pour les instructions cochées. Le cadrage suit le sens de circulation."
+                    )
+                    if not GOOGLE_API_KEY:
+                        st.info("Une clé Google API est nécessaire pour utiliser Street View.")
+                    elif selected_google_rows.empty:
+                        st.info("Sélectionne au moins une instruction dans la colonne « Exporter ».")
+                    elif st.button(
+                        "Afficher les photos Street View des points sélectionnés",
+                        key="roadbook_fetch_street_view",
+                        help="Recherche les panoramas disponibles puis affiche les images correspondantes."
+                    ):
+                        street_view_errors = {}
+                        with st.spinner("Chargement des photos Street View…"):
+                            for selected_index in newly_selected_indices:
+                                step = google_steps[selected_index]
+                                location = step.get("google_location") or {}
+                                if not location:
+                                    street_view_errors[selected_index] = "Position indisponible."
+                                    continue
+                                try:
+                                    pano_id = fetch_street_view_panorama_id(
+                                        float(location["lat"]),
+                                        float(location["lon"]),
+                                        GOOGLE_API_KEY,
+                                    )
+                                    if not pano_id:
+                                        street_view_errors[selected_index] = "Aucune image Street View à proximité."
+                                        continue
+                                    heading = step.get("google_heading")
+                                    if heading is None:
+                                        heading = 0
+                                    image_response = requests.get(
+                                        "https://maps.googleapis.com/maps/api/streetview",
+                                        params={
+                                            "size": "640x400",
+                                            "pano": pano_id,
+                                            "heading": round(float(heading), 1),
+                                            "pitch": 0,
+                                            "fov": 80,
+                                            "key": GOOGLE_API_KEY,
+                                        },
+                                        timeout=20,
+                                    )
+                                    image_response.raise_for_status()
+                                    if not image_response.headers.get("Content-Type", "").startswith("image/"):
+                                        raise RuntimeError("Google n'a pas retourné une image.")
+                                    st.markdown(
+                                        f"**PK {step.get('google_pk_km', 0):.3f} km** — "
+                                        f"{html.escape(step.get('google_instruction', ''))}"
+                                    )
+                                    st.image(BytesIO(image_response.content), use_container_width=True)
+                                    st.caption("Google Maps")
+                                except Exception as exc:
+                                    street_view_errors[selected_index] = str(exc)
+                        for error_index, error_message in street_view_errors.items():
+                            st.caption(
+                                f"PK {google_steps[error_index].get('google_pk_km', 0):.3f} km : {error_message}"
+                            )
+                        st.caption(
+                            "Les images sont affichées depuis la réponse Google et ne sont ni enregistrées "
+                            "par RoutePreview ni incluses dans le CSV."
+                        )
                 st.caption(
                     "Le PK est projeté sur la trace importée. La distance et la durée sont celles estimées par Google pour l'étape calculée ; "
                     "elles peuvent différer du kilométrage GPS. Les étapes signalées comme écartées doivent être contrôlées."
