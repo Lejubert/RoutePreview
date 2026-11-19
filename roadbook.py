@@ -218,8 +218,13 @@ def _sample_route_anchors(points: list[dict[str, float]], spacing_m: float) -> l
     return anchors
 
 
-def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]) -> tuple[float, float]:
-    """Return (distance to imported trace in metres, local chainage in metres)."""
+def _nearest_chainage(
+    point: tuple[float, float],
+    points: list[dict[str, float]],
+    min_chainage_m: float = 0.0,
+    max_chainage_m: float | None = None,
+) -> tuple[float, float]:
+    """Return nearest distance and local chainage, optionally within a route window."""
     if len(points) < 2:
         return float("inf"), 0.0
 
@@ -233,6 +238,14 @@ def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]
         segment_length = haversine((a["lat"], a["lon"]), (b["lat"], b["lon"]))
         if segment_length <= 0:
             continue
+
+        lower = max(0.0, (min_chainage_m - cumulative) / segment_length)
+        upper_limit = max_chainage_m if max_chainage_m is not None else float("inf")
+        upper = min(1.0, (upper_limit - cumulative) / segment_length)
+        if lower > 1.0 or upper < 0.0 or lower > upper:
+            cumulative += segment_length
+            continue
+
         mean_lat = math.radians((a["lat"] + b["lat"] + target_lat) / 3.0)
         ax = math.radians(a["lon"] - target_lon) * radius * math.cos(mean_lat)
         ay = math.radians(a["lat"] - target_lat) * radius
@@ -240,7 +253,8 @@ def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]
         by = math.radians(b["lat"] - target_lat) * radius
         dx, dy = bx - ax, by - ay
         denom = dx * dx + dy * dy
-        ratio = 0.0 if denom == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / denom))
+        projected = 0.0 if denom == 0 else -(ax * dx + ay * dy) / denom
+        ratio = max(lower, min(upper, projected))
         distance = math.hypot(ax + ratio * dx, ay + ratio * dy)
         if distance < best_distance:
             best_distance = distance
@@ -248,6 +262,33 @@ def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]
         cumulative += segment_length
 
     return best_distance, best_chainage
+
+
+def _point_at_chainage(
+    points: list[dict[str, float]],
+    chainage_m: float,
+) -> dict[str, float] | None:
+    """Interpolate a coordinate on one source segment at its local chainage."""
+    if len(points) < 2:
+        return None
+
+    remaining = max(0.0, chainage_m)
+    for point_a, point_b in zip(points, points[1:]):
+        length = haversine(
+            (point_a["lat"], point_a["lon"]),
+            (point_b["lat"], point_b["lon"]),
+        )
+        if length <= 0:
+            continue
+        if remaining <= length:
+            ratio = max(0.0, min(1.0, remaining / length))
+            return {
+                "lat": point_a["lat"] + ratio * (point_b["lat"] - point_a["lat"]),
+                "lon": point_a["lon"] + ratio * (point_b["lon"] - point_a["lon"]),
+            }
+        remaining -= length
+
+    return {"lat": points[-1]["lat"], "lon": points[-1]["lon"]}
 
 
 def _duration_seconds(value: str | None) -> float | None:
@@ -412,7 +453,12 @@ def fetch_google_route_instructions(
                     else:
                         step_start = (origin["lat"], origin["lon"])
 
-                    _, local_pk_m = _nearest_chainage(step_start, points)
+                    _, local_pk_m = _nearest_chainage(
+                        step_start,
+                        points,
+                        min_chainage_m=anchors[start_index]["pk_m"],
+                        max_chainage_m=anchors[end_index]["pk_m"],
+                    )
                     if max_offset is None:
                         match_status = "Non vérifiable"
                     elif max_offset <= max_deviation_m:
@@ -420,6 +466,8 @@ def fetch_google_route_instructions(
                     else:
                         match_status = "Écart à vérifier"
 
+                    snapped_location = _point_at_chainage(points, local_pk_m)
+                    trace_heading = _bearing_at_chainage(points, local_pk_m)
                     all_steps.append({
                         "segment": segment_index + 1,
                         "google_pk_km": (global_offset_m + local_pk_m) / 1000.0,
@@ -429,11 +477,13 @@ def fetch_google_route_instructions(
                         "google_duration_s": _duration_seconds(step.get("staticDuration")),
                         "google_max_deviation_m": round(max_offset, 1) if max_offset is not None else None,
                         "google_match_status": match_status,
-                        "google_location": {"lat": step_start[0], "lon": step_start[1]},
-                        "google_heading": (
+                        # Display and Street View use the projection on this exact
+                        # imported segment; retain Google's raw point for diagnostics.
+                        "google_location": snapped_location,
+                        "google_source_location": {"lat": step_start[0], "lon": step_start[1]},
+                        "google_heading": trace_heading if trace_heading is not None else (
                             bearing(step_geometry[0], step_geometry[1])
-                            if len(step_geometry) >= 2
-                            else _bearing_at_chainage(points, local_pk_m)
+                            if len(step_geometry) >= 2 else None
                         ),
                     })
 

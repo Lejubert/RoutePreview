@@ -26,7 +26,6 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from urllib.parse import urlencode
-import html
 from gpx_import import parse_gpx, sample_gpx_segments
 from roadbook import parse_kml, analyze_directions, fetch_osm_road_context, fetch_google_route_instructions, fetch_street_view_panorama_id
 
@@ -1152,6 +1151,7 @@ with tab3:
                 st.session_state.pop("roadbook_map_last_click", None)
                 st.session_state.pop("roadbook_google_error", None)
                 st.session_state.pop("roadbook_google_steps_editor", None)
+                st.session_state.pop("roadbook_street_view_cache", None)
             except ValueError as exc:
                 st.error(str(exc))
                 st.session_state.pop("roadbook_data", None)
@@ -1215,8 +1215,9 @@ with tab3:
                 fill=True, tooltip=waypoint["name"]
             ).add_to(route_map)
 
-        # Google instruction markers are interactive. Their selection is kept
-        # in session state and shared with the export table below.
+        # Google instruction markers use the position projected onto the
+        # matching imported route segment (not Google's potentially offset point).
+        # Their selection is kept in session state and shared with the export table below.
         google_guidance_for_map = st.session_state.get("roadbook_google_guidance") or {}
         google_steps_for_map = google_guidance_for_map.get("steps", [])
         selected_google_indices = set(
@@ -1451,71 +1452,91 @@ with tab3:
                         f"{len(selected_google_rows)} étape(s) sélectionnée(s) sur {len(google_steps)}."
                     )
 
-                    st.markdown("#### 📷 Photos Street View")
+                    st.markdown("#### 📷 Vignettes Street View par instruction")
                     st.caption(
-                        "Les images sont récupérées uniquement lorsque tu cliques sur le bouton, "
-                        "pour les instructions cochées. Le cadrage suit le sens de circulation."
+                        "Chaque photo est demandée individuellement. Clique uniquement sur les points utiles : "
+                        "les images déjà chargées restent en mémoire pendant la session et ne sont pas redemandées."
                     )
+                    street_view_cache = st.session_state.setdefault("roadbook_street_view_cache", {})
                     if not GOOGLE_API_KEY:
                         st.info("Une clé Google API est nécessaire pour utiliser Street View.")
-                    elif selected_google_rows.empty:
-                        st.info("Sélectionne au moins une instruction dans la colonne « Exporter ».")
-                    elif st.button(
-                        "Afficher les photos Street View des points sélectionnés",
-                        key="roadbook_fetch_street_view",
-                        help="Recherche les panoramas disponibles puis affiche les images correspondantes."
-                    ):
-                        street_view_errors = {}
-                        with st.spinner("Chargement des photos Street View…"):
-                            for selected_index in newly_selected_indices:
-                                step = google_steps[selected_index]
-                                location = step.get("google_location") or {}
-                                if not location:
-                                    street_view_errors[selected_index] = "Position indisponible."
-                                    continue
-                                try:
-                                    pano_id = fetch_street_view_panorama_id(
-                                        float(location["lat"]),
-                                        float(location["lon"]),
-                                        GOOGLE_API_KEY,
-                                    )
-                                    if not pano_id:
-                                        street_view_errors[selected_index] = "Aucune image Street View à proximité."
-                                        continue
-                                    heading = step.get("google_heading")
-                                    if heading is None:
-                                        heading = 0
-                                    image_response = requests.get(
-                                        "https://maps.googleapis.com/maps/api/streetview",
-                                        params={
-                                            "size": "640x400",
-                                            "pano": pano_id,
-                                            "heading": round(float(heading), 1),
-                                            "pitch": 0,
-                                            "fov": 80,
-                                            "key": GOOGLE_API_KEY,
-                                        },
-                                        timeout=20,
-                                    )
-                                    image_response.raise_for_status()
-                                    if not image_response.headers.get("Content-Type", "").startswith("image/"):
-                                        raise RuntimeError("Google n'a pas retourné une image.")
-                                    st.markdown(
-                                        f"**PK {step.get('google_pk_km', 0):.3f} km** — "
-                                        f"{html.escape(step.get('google_instruction', ''))}"
-                                    )
-                                    st.image(BytesIO(image_response.content), use_container_width=True)
-                                    st.caption("Google Maps")
-                                except Exception as exc:
-                                    street_view_errors[selected_index] = str(exc)
-                        for error_index, error_message in street_view_errors.items():
-                            st.caption(
-                                f"PK {google_steps[error_index].get('google_pk_km', 0):.3f} km : {error_message}"
-                            )
-                        st.caption(
-                            "Les images sont affichées depuis la réponse Google et ne sont ni enregistrées "
-                            "par RoutePreview ni incluses dans le CSV."
-                        )
+                    else:
+                        for step_index, step in enumerate(google_steps):
+                            cache_key = f"{st.session_state.get('roadbook_route_signature', '')}:{step_index}"
+                            cached_view = street_view_cache.get(cache_key, {})
+                            thumb_col, detail_col, action_col = st.columns([1.25, 5, 1.5])
+                            with thumb_col:
+                                if cached_view.get("image"):
+                                    st.image(BytesIO(cached_view["image"]), use_container_width=True)
+                                else:
+                                    st.caption("Photo non chargée")
+                            with detail_col:
+                                st.markdown(
+                                    f"**PK {step.get('google_pk_km', 0):.3f} km** — "
+                                    f"{step.get('google_instruction', 'Instruction sans texte')}"
+                                )
+                                st.caption(
+                                    f"Segment {step.get('segment', '?')} · "
+                                    f"{step.get('google_match_status', 'Correspondance inconnue')} · "
+                                    f"Écart max. : {step.get('google_max_deviation_m') if step.get('google_max_deviation_m') is not None else 'n/c'} m"
+                                )
+                                if cached_view.get("error"):
+                                    st.caption(f"Street View : {cached_view['error']}")
+                                elif cached_view.get("image"):
+                                    st.caption("Photo Street View chargée · Google Maps")
+                            with action_col:
+                                button_label = "Charger" if not cached_view else (
+                                    "Réessayer" if cached_view.get("error") else "Chargée"
+                                )
+                                if st.button(
+                                    button_label,
+                                    key=f"roadbook_street_view_{cache_key}",
+                                    disabled=bool(cached_view.get("image")),
+                                    help="Effectue une recherche Street View et charge une seule vignette."
+                                ):
+                                    location = step.get("google_location") or {}
+                                    try:
+                                        if not location:
+                                            raise RuntimeError("Position projetée indisponible.")
+                                        with st.spinner(f"Recherche Street View — PK {step.get('google_pk_km', 0):.3f} km…"):
+                                            pano_id = fetch_street_view_panorama_id(
+                                                float(location["lat"]),
+                                                float(location["lon"]),
+                                                GOOGLE_API_KEY,
+                                            )
+                                            if not pano_id:
+                                                street_view_cache[cache_key] = {
+                                                    "error": "Aucune couverture Street View à proximité."
+                                                }
+                                            else:
+                                                heading = step.get("google_heading")
+                                                image_response = requests.get(
+                                                    "https://maps.googleapis.com/maps/api/streetview",
+                                                    params={
+                                                        "size": "320x200",
+                                                        "pano": pano_id,
+                                                        "heading": round(float(heading or 0), 1),
+                                                        "pitch": 0,
+                                                        "fov": 80,
+                                                        "key": GOOGLE_API_KEY,
+                                                    },
+                                                    timeout=20,
+                                                )
+                                                image_response.raise_for_status()
+                                                if not image_response.headers.get("Content-Type", "").startswith("image/"):
+                                                    raise RuntimeError("Google n'a pas retourné une image.")
+                                                street_view_cache[cache_key] = {
+                                                    "image": image_response.content,
+                                                    "pano_id": pano_id,
+                                                }
+                                    except Exception as exc:
+                                        street_view_cache[cache_key] = {"error": str(exc)}
+                                    st.session_state["roadbook_street_view_cache"] = street_view_cache
+                                    st.rerun()
+                    st.caption(
+                        "Les vignettes restent en mémoire de session uniquement ; elles ne sont ni exportées "
+                        "dans le CSV ni enregistrées dans les fichiers du projet."
+                    )
                 st.caption(
                     "Le PK est projeté sur la trace importée. La distance et la durée sont celles estimées par Google pour l'étape calculée ; "
                     "elles peuvent différer du kilométrage GPS. Les étapes signalées comme écartées doivent être contrôlées."
