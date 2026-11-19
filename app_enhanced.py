@@ -26,7 +26,6 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from urllib.parse import urlencode
-import html
 from gpx_import import parse_gpx, sample_gpx_segments
 from roadbook import parse_kml, analyze_directions, fetch_osm_road_context, fetch_google_route_instructions, fetch_street_view_panorama_id
 
