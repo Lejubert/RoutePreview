@@ -218,8 +218,13 @@ def _sample_route_anchors(points: list[dict[str, float]], spacing_m: float) -> l
     return anchors
 
 
-def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]) -> tuple[float, float]:
-    """Return (distance to imported trace in metres, local chainage in metres)."""
+def _nearest_chainage(
+    point: tuple[float, float],
+    points: list[dict[str, float]],
+    min_chainage_m: float = 0.0,
+    max_chainage_m: float | None = None,
+) -> tuple[float, float]:
+    """Return nearest distance and local chainage, optionally within a route window."""
     if len(points) < 2:
         return float("inf"), 0.0
 
@@ -233,6 +238,14 @@ def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]
         segment_length = haversine((a["lat"], a["lon"]), (b["lat"], b["lon"]))
         if segment_length <= 0:
             continue
+
+        lower = max(0.0, (min_chainage_m - cumulative) / segment_length)
+        upper_limit = max_chainage_m if max_chainage_m is not None else float("inf")
+        upper = min(1.0, (upper_limit - cumulative) / segment_length)
+        if lower > 1.0 or upper < 0.0 or lower > upper:
+            cumulative += segment_length
+            continue
+
         mean_lat = math.radians((a["lat"] + b["lat"] + target_lat) / 3.0)
         ax = math.radians(a["lon"] - target_lon) * radius * math.cos(mean_lat)
         ay = math.radians(a["lat"] - target_lat) * radius
@@ -240,7 +253,8 @@ def _nearest_chainage(point: tuple[float, float], points: list[dict[str, float]]
         by = math.radians(b["lat"] - target_lat) * radius
         dx, dy = bx - ax, by - ay
         denom = dx * dx + dy * dy
-        ratio = 0.0 if denom == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / denom))
+        projected = 0.0 if denom == 0 else -(ax * dx + ay * dy) / denom
+        ratio = max(lower, min(upper, projected))
         distance = math.hypot(ax + ratio * dx, ay + ratio * dy)
         if distance < best_distance:
             best_distance = distance
@@ -439,7 +453,12 @@ def fetch_google_route_instructions(
                     else:
                         step_start = (origin["lat"], origin["lon"])
 
-                    _, local_pk_m = _nearest_chainage(step_start, points)
+                    _, local_pk_m = _nearest_chainage(
+                        step_start,
+                        points,
+                        min_chainage_m=anchors[start_index]["pk_m"],
+                        max_chainage_m=anchors[end_index]["pk_m"],
+                    )
                     if max_offset is None:
                         match_status = "Non vérifiable"
                     elif max_offset <= max_deviation_m:
